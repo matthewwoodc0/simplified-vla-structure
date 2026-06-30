@@ -1,0 +1,31 @@
+<mujoco model="so101_pickup_scene">
+  <include file="so101_arm.xml"/>
+
+  <option timestep="0.002" gravity="0 0 -9.81" integrator="RK4"/>
+
+  <visual>
+    <global offwidth="1280" offheight="960"/>
+  </visual>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.25 0.25 0.25" rgb2="0.32 0.32 0.32" width="256" height="256"/>
+    <material name="floor_mat" texture="grid" texrepeat="6 6" reflectance="0.1"/>
+    <material name="table_mat" rgba="0.38 0.34 0.28 1"/>
+    <material name="object_mat" rgba="0.92 0.22 0.12 1"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0.4 -0.4 0.8" dir="-0.4 0.4 -0.8"/>
+    <camera name="overview" pos="0.36 -0.58 0.38" xyaxes="0.85 0.53 0 -0.24 0.38 0.89"/>
+    <geom name="floor" type="plane" size="1.5 1.5 0.03" material="floor_mat"/>
+    <geom name="support_surface" type="box" pos="0 -0.235 0.028" size="0.16 0.12 0.028" material="table_mat" friction="1.2 0.01 0.0001"/>
+    <body name="pickup_object" pos="0 -0.235 0.069">
+      <freejoint name="pickup_object_freejoint"/>
+      <geom name="pickup_object_geom" type="box" size="0.009 0.007 0.013" mass="0.004" material="object_mat"
+            solimp="0.95 0.99 0.001" solref="0.004 1" friction="1.8 0.03 0.0003"/>
+    </body>
+    <body name="target_marker" mocap="true" pos="0.02 -0.24 0.08">
+      <geom name="target_marker_geom" type="sphere" size="0.01" rgba="0.1 0.8 0.25 0.45" contype="0" conaffinity="0"/>
+    </body>
+  </worldbody>
+</mujoco>
