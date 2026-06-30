@@ -43,8 +43,8 @@ This repo currently has the first simulation/control smoke test:
 - `src/svla/teleop_controller.py` integrates that intent into a clipped Cartesian target.
 - `src/svla/teleop_workspace.py` defines the conservative reachable target box used by
   manual teleoperation.
-- `src/svla/action_spaces.py` defines aligned joint-delta and end-effector-delta
-  trajectory labels behind a shared adapter interface.
+- `src/svla/action_spaces.py` defines aligned joint-delta, full EE-delta, and reduced
+  tool-axis EE-delta trajectory labels behind a shared adapter interface.
 - `scripts/run_reach_demo.py` runs a headless reaching demo.
 - `scripts/render_reach_demo.py` exports a MuJoCo MP4 so the environment is visible.
 - `scripts/train_reach_policy.py` trains a tiny numpy-only reach policy and renders it.
@@ -52,17 +52,19 @@ This repo currently has the first simulation/control smoke test:
 - `src/svla/pickup_task.py` exposes a reusable pickup task API and runs scripted grasp,
   lift, hold, and failure classification trials.
 - `src/svla/demo_recorder.py` records deterministic scripted pickup demos with aligned
-  joint-delta and EE-delta labels from the same trajectory.
+  joint-delta, full EE-delta, and reduced tool-axis labels from the same trajectory.
 - `src/svla/state_bc.py` implements a small numpy-only state behavioral-cloning baseline
   with grouped nearest-neighbor and phase-aware MLP policies plus closed-loop MuJoCo
   rollout evaluation.
 - `scripts/run_pickup_trials.py` runs the multi-bucket pickup evaluator and writes JSONL logs.
 - `scripts/record_pickup_demos.py` writes small local scripted demo JSON files and a manifest.
 - `scripts/train_state_bc.py` generates scripted pickup demos, trains joint-delta and
-  EE-delta state BC policies, rolls them out in the pickup task, and writes model/eval
-  artifacts.
+  `ee_tool_delta` state BC policies, rolls them out in the pickup task, and writes
+  model/eval artifacts.
 - `scripts/validate_controller_quality.py` checks deterministic replay, continuity,
   local predictability, smoothness, tracking error, and saturation reporting.
+- `scripts/validate_action_replay.py` replays both executable action labels across the
+  complete controller benchmark and reports saturation rates.
 - `tests/` verifies controller telemetry, action adapters, pickup evaluation, the reusable
   task API, demo label alignment, executable policy-label replay, controller quality,
   and BC model loading.
@@ -141,8 +143,8 @@ There are several different things you can run or open. They are not the same fe
 
    This writes deterministic JSON demos to `outputs/scripted_pickup_demos/`. Each demo
    records observations, joint positions, EE pose, gripper commands, controller telemetry,
-   contact/lift/retention metrics, and aligned `joint_delta` and `ee_delta` labels for the
-   same controller trajectory.
+   contact/lift/retention metrics, and aligned `joint_delta`, full `ee_delta`, and reduced
+   `ee_tool_delta` labels for the same controller trajectory.
 
 5. State-based behavioral cloning:
 
@@ -154,7 +156,7 @@ There are several different things you can run or open. They are not the same fe
 
    - `scripted_pickup_demos/`: deterministic local demos,
    - `models/joint_delta_nearest_neighbor_bc.npz`,
-   - `models/ee_delta_nearest_neighbor_bc.npz`,
+   - `models/ee_tool_delta_nearest_neighbor_bc.npz`,
    - `eval/*_policy_trials.jsonl`,
    - `state_bc_summary.json`.
 
@@ -185,7 +187,7 @@ The current code is only the bottom of that stack:
 
 ```text
 current code = MuJoCo arm + deterministic controller + pickup task + demos + state BC audit
-future code  = corrected controller action space + vision + language-conditioned VLA inputs
+future code  = vision observations + multiple behaviors + language-conditioned VLA inputs
 ```
 
 If the controller layer is wrong, every later ML result is meaningless. That is why the
@@ -235,23 +237,27 @@ Phase 2 - Make the controller experimentally usable
       fields,
     - feasible EE labels reconstructed from the bounded joint intention instead of clipped
       absolute pose error,
+    - a five-DOF `ee_tool_delta` action: world XYZ plus local X/Y tilt while deterministic
+      posture control resolves roll about the gripper's local Z axis,
     - tests for adapter labels, demo alignment, repeatability, continuity,
       unreachable actions, and posture behavior.
   Latest controller-quality artifact:
-    - `outputs/controller_quality_summary.json`,
+    - `outputs/controller_quality_tool_axis_summary.json`,
     - exact repeat deterministic error: 0 for joints, velocities, EE position, and EE
       quaternion,
     - mean tracking error: 0.00308 m,
-    - max executed joint step: 0.00247 rad,
-    - max executed joint acceleration step: 0.00056 rad,
-    - zero Cartesian input clipping and zero joint-limit clipping on the validation stream.
+    - max executed joint step: 0.00203 rad,
+    - max executed joint acceleration step: 0.00025 rad,
+    - zero Cartesian, joint-step, joint-acceleration, joint-limit, infeasible, or controller
+      failure events on the 160-step validation stream.
   Remaining caution:
-    - the DLS joint-step request still saturates on 92/160 synthetic validation steps,
-      but the executed motion is bounded, smooth, deterministic, and explicitly reported.
+    - direct reduced-action replay averages 12.2% total saturation and 5.1% hard-limit
+      infeasibility across the broader pickup trajectories; these events remain explicit.
   Exit condition met:
     - the same scripted trajectory can be represented in joint and EE action spaces,
-      direct replay succeeds without hard-limit clipping, and the policy-facing EE path is
-      measurable rather than hidden-state-dependent.
+      `outputs/action_replay_tool_axis_summary.json` reports 18/18 successful direct replay
+      for both action spaces, and the policy-facing EE path is measurable rather than
+      hidden-state-dependent.
 
 Phase 3 - Build the first real manipulation task
   Goal: create a simple table/cube pick-place environment.
@@ -260,7 +266,7 @@ Phase 3 - Build the first real manipulation task
     - table/object pickup scene,
     - deterministic scripted pickup policy,
     - contact, lift, hold-retention, clipping, and failure-category metrics,
-    - `outputs/pickup_trials_controller_quality.jsonl`,
+    - `outputs/pickup_trials_tool_axis.jsonl`,
     - final 36-trial benchmark at 36/36 successful pickups.
   Remaining controller/task weakness:
     - contact retention is still a narrow-margin simulator behavior even though the final
@@ -272,56 +278,60 @@ Phase 4 - Dataset generation
   Current output:
     - `scripts/record_pickup_demos.py`,
     - `outputs/scripted_pickup_demos/manifest.json`,
-    - JSON demos with observations, joint-delta labels, EE-delta labels, controller
-      telemetry, and success metrics.
+    - JSON demos with observations, joint-delta labels, full EE labels, reduced tool-axis
+      labels, controller telemetry, and success metrics.
   Exit condition met at sample scale:
     - one deterministic trajectory source can export labels for multiple policy heads fairly.
 
 Phase 5 - State-based behavioral cloning
   Goal: answer the action-space question without vision/language noise.
-  Status: implemented, but the corrected EE comparison does not pass the vision gate.
+  Status: implemented and strong enough to begin the vision phase.
   Current output:
     - `src/svla/state_bc.py`,
     - `scripts/train_state_bc.py`,
     - executable `policy_labels` in scripted demos,
-    - joint-delta and EE-delta `.npz` policy artifacts,
+    - joint-delta and reduced tool-axis `.npz` policy artifacts,
     - rollout JSONL logs with contact, lift, retention, clipping, action magnitude,
       smoothness, nearest-neighbor distance, and failure categories.
   Latest local evidence:
-    - full tests: 36 passed.
+    - full tests: 37 passed.
     - controller pickup benchmark: 36/36 successes.
     - demo generation: 30/30 dense-grid scripted demonstrations succeeded and include
       aligned executable labels plus controller/contact telemetry.
     - the earlier `outputs/state_bc_bounded_ee_final_test/` result is historical only: its
       EE labels encoded clipped absolute pose error and saturated on most rollout steps,
       so its apparent 69/72 EE advantage is not readiness evidence.
-    - corrected untouched audit artifact:
-      `outputs/state_bc_feasible_ee_final_audit/state_bc_summary.json`.
-    - final joint-delta: 61/72, 84.7%; per-seed 21/24, 20/24, 20/24.
-    - final feasible EE-delta: 42/72, 58.3%; per-seed 14/24, 15/24, 13/24.
-    - both policies used the same 30 demos, observations, task contexts, seeds, audit
-      starts, rollout limit, gain 1.0, and success metrics.
-    - zero numerical controller-failure steps occurred in 144 audit rollouts.
-    - EE averaged 779 joint-saturated steps and 39 explicitly infeasible steps per
-      rollout; joint delta averaged 130 hard-limit steps per rollout.
+    - final untouched artifact: `outputs/state_bc_tool_axis_final/state_bc_summary.json`.
+    - final joint-delta: 61/72, 84.7%; per-seed 22/24, 20/24, 19/24.
+    - final `ee_tool_delta`: 60/72, 83.3%; per-seed 23/24, 19/24, 18/24.
+    - both policies used the same 30 demos, observations, task contexts, seeds, final
+      starts, 128x128 MLP architecture, 300 epochs, rollout limit, gain 1.0, and success
+      metrics.
+    - all 23 failures were classified as gripper/contact-model failures; there were zero
+      controller/IK or numerical controller-failure steps.
+    - reduced EE averaged 28.6% total joint saturation, 6.8% hard-limit clipping, and 5.4%
+      infeasible steps; joint delta averaged 5.2% hard-limit/infeasible steps.
   What this proves:
     - the state/demo/action-space/evaluation pipeline runs end to end,
-    - joint-delta and EE-delta labels are executable in closed-loop MuJoCo rollouts,
+    - joint-delta and reduced EE labels are executable in closed-loop MuJoCo rollouts,
     - failures are categorized instead of hidden behind supervised loss,
-    - the bounded controller itself is deterministic and direct feasible-label replay is
-      smooth, but learned EE predictions leave the five-DOF arm's feasible local motion
-      manifold often enough to trigger saturation and lose pickups,
-    - joint delta currently beats corrected EE delta by 19 successes over 72 matched,
-      untouched audit rollouts.
+    - the bounded tool-axis controller is deterministic, locally predictable, smooth, and
+      free of nominal validation saturation,
+    - state BC reaches essentially equal closed-loop performance: joint delta leads by one
+      success over 72 matched rollouts, which is not evidence of an action-space advantage.
+  Likely residual EE failure mode:
+    - learned reduced-EE outputs leave the demonstrated local intention distribution often
+      enough to invoke the bounded joint-velocity path more frequently than joint delta;
+      on this narrow-margin grasp model that can perturb contact retention even though no
+      controller/IK failure occurs.
   What this does not prove:
-    - that the current six-dimensional EE action is a good learning interface for this
-      five-joint arm,
-    - that adding images would repair the state-policy/controller mismatch,
+    - that reduced EE actions are universally better than joint actions,
+    - that parity will survive image observations,
     - language conditioning is meaningful on a single pickup task.
   Readiness verdict:
-    - not ready for Phase 6 vision or language-conditioned VLA training,
-    - redesign and validate a lower-dimensional or redundancy-aware controller action,
-      then rerun this state-only audit before adding observation complexity.
+    - ready to begin Phase 6 vision experiments while preserving this state baseline,
+    - not ready for language-conditioned VLA training because only one semantic behavior
+      is validated.
   Required language gate:
     - add at least two validated behavior variants with instructions that require
       different actions, such as pick, place-to-left, and place-to-right,
@@ -330,9 +340,12 @@ Phase 5 - State-based behavioral cloning
 Phase 6 - Vision policy
   Goal: add camera observations after the action-space result is measurable.
   Needed work:
-    - add RGB rendering,
-    - train small CNN/MLP or compact vision encoder policy,
-    - keep the same action-space comparison.
+    - add fixed-camera RGB observations to the same deterministic demonstrations,
+    - freeze the controller, action definitions, train/final starts, seeds, and success
+      metrics from Phase 5,
+    - train the same small vision encoder capacity for joint delta and `ee_tool_delta`,
+    - retain the state MLP as a non-visual upper-bound/debugging baseline,
+    - keep the final split untouched until architecture and gain choices are frozen.
   Exit condition:
     - vision policy reproduces the state-based trend or exposes why it changes.
 
@@ -356,10 +369,9 @@ Phase 8 - Unity / Isaac branches, if justified
     - not the first local path on this Mac.
 ```
 
-The next concrete build step remains controller/state-policy work: replace the
-overconstrained six-dimensional EE action with a locally feasible lower-dimensional or
-hybrid action, validate continuity and saturation again, and rerun the untouched state-BC
-comparison. Vision and language remain blocked.
+The next concrete build step is Phase 6 RGB observations using the frozen tool-axis
+controller and state-BC comparison. Language remains blocked until multiple
+instruction-distinct behaviors are validated.
 
 ## Local Setup
 
@@ -405,6 +417,12 @@ Run controller-quality validation:
 python scripts/validate_controller_quality.py
 ```
 
+Validate executable action-label replay:
+
+```bash
+python scripts/validate_action_replay.py
+```
+
 Run a small simulation-training loop and render the trained rollout:
 
 ```bash
@@ -416,11 +434,12 @@ Run the stricter held-out state-BC check:
 ```bash
 python scripts/train_state_bc.py --output-dir outputs/state_bc_generalization --eval-mode both
 python scripts/train_state_bc.py \
-  --output-dir outputs/state_bc_feasible_ee_final_audit \
+  --output-dir outputs/state_bc_tool_axis_final \
   --policy-type mlp \
   --train-grid dense \
-  --eval-mode audit \
-  --epochs 160 \
+  --eval-mode final \
+  --epochs 300 \
+  --hidden-sizes 128 128 \
   --seeds 0 1 2 \
   --joint-action-gain 1.0 \
   --ee-action-gain 1.0

@@ -124,6 +124,9 @@ class PickupTaskEvaluator:
             max_step_rot=0.08,
             max_target_lag_xyz=0.018,
             max_joint_step=0.028,
+            posture_gain=0.07,
+            orientation_mode="tool_axis",
+            tool_axis_index=2,
             position_tolerance=0.006,
             rotation_tolerance=0.08,
         )
@@ -293,6 +296,33 @@ class PickupTaskEvaluator:
             failure_reason=controller_status.failure_reason,
         )
         return self.get_observation(), self.get_success_metrics(), status
+
+    def step_ee_tool_delta_action(
+        self,
+        delta_xyz: np.ndarray,
+        delta_tilt_xy: np.ndarray,
+        gripper_open: float,
+        substeps: int = 4,
+    ) -> tuple[dict, dict, object]:
+        """Apply the five-DOF tool-axis action used by the pickup policy."""
+
+        delta_tilt_xy = np.asarray(delta_tilt_xy, dtype=float)
+        if delta_tilt_xy.shape != (2,):
+            raise ValueError(
+                f"delta_tilt_xy must have shape (2,), got {delta_tilt_xy.shape}"
+            )
+        if (
+            self.controller.limits.orientation_mode != "tool_axis"
+            or self.controller.limits.tool_axis_index != 2
+        ):
+            raise RuntimeError("ee_tool_delta requires local-Z tool-axis control")
+        delta_rotvec = np.array([delta_tilt_xy[0], delta_tilt_xy[1], 0.0])
+        return self.step_ee_delta_action(
+            delta_xyz,
+            delta_rotvec,
+            gripper_open,
+            substeps=substeps,
+        )
 
     def step_joint_delta_action(
         self,

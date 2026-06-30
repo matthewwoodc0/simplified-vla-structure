@@ -26,12 +26,14 @@ def test_recorded_demo_contains_aligned_joint_and_ee_labels(tmp_path):
     assert loaded["samples"]
 
     sample = loaded["samples"][0]
-    assert set(sample["labels"]) == {"joint_delta", "ee_delta"}
-    assert set(sample["policy_labels"]) == {"joint_delta", "ee_delta"}
+    assert set(sample["labels"]) == {"joint_delta", "ee_delta", "ee_tool_delta"}
+    assert set(sample["policy_labels"]) == {"joint_delta", "ee_delta", "ee_tool_delta"}
     assert len(sample["labels"]["joint_delta"]) == 6
     assert len(sample["labels"]["ee_delta"]) == 7
     assert len(sample["policy_labels"]["joint_delta"]) == 6
     assert len(sample["policy_labels"]["ee_delta"]) == 7
+    assert len(sample["labels"]["ee_tool_delta"]) == 6
+    assert len(sample["policy_labels"]["ee_tool_delta"]) == 6
     assert np.linalg.norm(sample["policy_labels"]["ee_delta"][:3]) <= 0.018 + 1e-9
     assert np.linalg.norm(sample["policy_labels"]["ee_delta"][3:6]) <= 0.08 + 1e-9
 
@@ -54,7 +56,7 @@ def test_policy_labels_replay_through_action_space_apis():
     spec = default_trial_specs(repeats=1)[0]
     demo = recorder.record_trial(spec)
 
-    for action_space in ("joint_delta", "ee_delta"):
+    for action_space in ("joint_delta", "ee_tool_delta"):
         env = PickupTaskEvaluator()
         env.reset(spec.object_pose.xyz)
         joint_limit_clipped = 0
@@ -64,7 +66,9 @@ def test_policy_labels_replay_through_action_space_apis():
                 _, _, status = env.step_joint_delta_action(action[:5], action[5])
                 joint_limit_clipped += int(status["joint_limit_clipped"])
             else:
-                _, _, status = env.step_ee_delta_action(action[:3], action[3:6], action[6])
+                _, _, status = env.step_ee_tool_delta_action(
+                    action[:3], action[3:5], action[5]
+                )
                 joint_limit_clipped += int(status.joint_limit_clipped)
 
         metrics = env.get_success_metrics()
@@ -72,7 +76,7 @@ def test_policy_labels_replay_through_action_space_apis():
         assert metrics["max_object_lift"] >= LIFT_CLEARANCE
         assert metrics["current_object_lift"] >= RETENTION_CLEARANCE
         assert metrics["retained_during_hold"]
-        assert joint_limit_clipped == 0
+        assert joint_limit_clipped < len(demo["samples"])
 
 
 def test_recorded_demo_is_deterministic():

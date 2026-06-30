@@ -136,6 +136,18 @@ def audit_trial_specs() -> list[PickupTrialSpec]:
     return trial_specs_for_object_poses(object_poses, start_trial_id=3001, repeats=1)
 
 
+def final_trial_specs() -> list[PickupTrialSpec]:
+    """Untouched grid reserved for the reduced tool-axis controller comparison."""
+
+    object_poses = [
+        grid_object_pose("final_left_outer", -0.0163125),
+        grid_object_pose("final_left_inner", -0.010125),
+        grid_object_pose("final_right_inner", 0.010125),
+        grid_object_pose("final_right_outer", 0.0163125),
+    ]
+    return trial_specs_for_object_poses(object_poses, start_trial_id=4001, repeats=1)
+
+
 def training_specs(mode: str, repeats: int) -> list[PickupTrialSpec]:
     if mode == "default":
         return default_trial_specs(repeats=repeats)
@@ -153,6 +165,8 @@ def evaluation_specs(mode: str, train_grid: str, repeats: int) -> list[PickupTri
         return test_trial_specs()
     if mode == "audit":
         return audit_trial_specs()
+    if mode == "final":
+        return final_trial_specs()
     if mode == "both":
         return training_specs(train_grid, repeats=repeats) + heldout_trial_specs()
     raise ValueError(f"unknown eval mode: {mode}")
@@ -176,7 +190,7 @@ def run(args: argparse.Namespace) -> dict:
             args.joint_action_gain
             if action_space == "joint_delta" and args.joint_action_gain is not None
             else args.ee_action_gain
-            if action_space == "ee_delta" and args.ee_action_gain is not None
+            if action_space == "ee_tool_delta" and args.ee_action_gain is not None
             else args.action_gain
         )
         dataset = load_demo_dataset(
@@ -319,7 +333,7 @@ def run(args: argparse.Namespace) -> dict:
         "joint_delta": args.joint_action_gain
         if args.joint_action_gain is not None
         else args.action_gain,
-        "ee_delta": args.ee_action_gain
+        "ee_tool_delta": args.ee_action_gain
         if args.ee_action_gain is not None
         else args.action_gain,
     }
@@ -341,7 +355,7 @@ def main() -> None:
     parser.add_argument("--eval-repeats", type=int, default=1)
     parser.add_argument(
         "--eval-mode",
-        choices=("train", "heldout", "test", "audit", "both"),
+        choices=("train", "heldout", "test", "audit", "final", "both"),
         default="both",
     )
     parser.add_argument("--max-steps", type=int, default=3200)

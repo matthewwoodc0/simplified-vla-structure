@@ -122,6 +122,10 @@ class PickupDemoRecorder:
                 "action_spaces": {
                     "joint_delta": "arm joint delta followed by gripper_open command",
                     "ee_delta": "end-effector xyz delta, local rotvec delta, gripper_open command",
+                    "ee_tool_delta": (
+                        "end-effector xyz delta, local X/Y tilt, deterministic local-Z "
+                        "posture control, gripper_open command"
+                    ),
                 },
                 "no_ml": True,
             },
@@ -240,8 +244,15 @@ def _policy_labels(
     delta_xyz = np.asarray(telemetry.feasible_delta_xyz, dtype=float)
     delta_rotvec = np.asarray(telemetry.feasible_delta_rotvec, dtype=float)
     return {
-        "joint_delta": _round_list(np.concatenate((joint_delta, [command.gripper_open]))),
-        "ee_delta": _round_list(
+        "joint_delta": _round_policy(np.concatenate((joint_delta, [command.gripper_open]))),
+        "ee_delta": _round_policy(
             np.concatenate((delta_xyz, delta_rotvec, [command.gripper_open]))
         ),
+        "ee_tool_delta": _round_policy(
+            np.concatenate((delta_xyz, delta_rotvec[:2], [command.gripper_open]))
+        ),
     }
+
+
+def _round_policy(values: np.ndarray) -> list[float]:
+    return np.round(np.asarray(values, dtype=float), 9).tolist()

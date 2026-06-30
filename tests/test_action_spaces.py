@@ -4,6 +4,7 @@ from scipy.spatial.transform import Rotation
 from svla.action_spaces import (
     EndEffectorDeltaActionAdapter,
     JointDeltaActionAdapter,
+    ToolAxisEndEffectorDeltaActionAdapter,
     TrajectoryState,
     label_transition_all,
 )
@@ -69,9 +70,32 @@ def test_same_transition_exports_both_action_space_labels():
 
     labels = label_transition_all(before, after, gripper_command=0.0)
 
-    assert set(labels) == {"joint_delta", "ee_delta"}
+    assert set(labels) == {"joint_delta", "ee_delta", "ee_tool_delta"}
     assert len(labels["joint_delta"]) == 6
     assert len(labels["ee_delta"]) == 7
+    assert len(labels["ee_tool_delta"]) == 6
+
+
+def test_tool_axis_adapter_omits_local_z_roll():
+    before_rotation = Rotation.identity()
+    after_rotation = Rotation.from_rotvec([0.1, -0.2, 0.3])
+    before = TrajectoryState(
+        joint_positions=np.zeros(5),
+        ee_position=np.zeros(3),
+        ee_quat_wxyz=_wxyz_from_rotation(before_rotation),
+        gripper_open=1.0,
+    )
+    after = TrajectoryState(
+        joint_positions=np.zeros(5),
+        ee_position=np.array([0.01, 0.02, 0.03]),
+        ee_quat_wxyz=_wxyz_from_rotation(after_rotation),
+        gripper_open=0.0,
+    )
+
+    label = ToolAxisEndEffectorDeltaActionAdapter().label_transition(before, after, 0.4)
+
+    assert label.name == "ee_tool_delta"
+    assert np.allclose(label.values, [0.01, 0.02, 0.03, 0.1, -0.2, 0.4])
 
 
 def _wxyz_from_rotation(rotation):

@@ -87,6 +87,24 @@ class EndEffectorDeltaActionAdapter:
         return ActionLabel(self.name, values)
 
 
+class ToolAxisEndEffectorDeltaActionAdapter:
+    """Five-DOF EE label: xyz plus local X/Y tilt, leaving local-Z roll to posture control."""
+
+    name = "ee_tool_delta"
+    size = 6
+
+    def label_transition(
+        self,
+        before: TrajectoryState,
+        after: TrajectoryState,
+        gripper_command: float,
+    ) -> ActionLabel:
+        delta_xyz = after.ee_position - before.ee_position
+        delta_rotvec = _local_rotvec_delta(before.ee_quat_wxyz, after.ee_quat_wxyz)
+        values = np.concatenate((delta_xyz, delta_rotvec[:2], [float(gripper_command)]))
+        return ActionLabel(self.name, values)
+
+
 def label_transition_all(
     before: TrajectoryState,
     after: TrajectoryState,
@@ -98,6 +116,7 @@ def label_transition_all(
     adapters = adapters or (
         JointDeltaActionAdapter(len(before.joint_positions)),
         EndEffectorDeltaActionAdapter(),
+        ToolAxisEndEffectorDeltaActionAdapter(),
     )
     labels = {}
     for adapter in adapters:

@@ -15,7 +15,8 @@ from svla.pickup_task import (
 )
 
 
-ACTION_SPACES = {"joint_delta": 6, "ee_delta": 7}
+ACTION_SPACE_SIZES = {"joint_delta": 6, "ee_delta": 7, "ee_tool_delta": 6}
+ACTION_SPACES = {name: ACTION_SPACE_SIZES[name] for name in ("joint_delta", "ee_tool_delta")}
 APPROACH_LABELS = ("vertical_pregrasp", "high_staged_vertical_pregrasp")
 PHASE_LABELS = (
     "approach_0",
@@ -146,7 +147,7 @@ class NearestNeighborBCPolicy:
         k: int = 8,
         temperature: float = 0.75,
     ) -> None:
-        if action_space not in ACTION_SPACES:
+        if action_space not in ACTION_SPACE_SIZES:
             raise ValueError(f"unknown action space: {action_space}")
         self.action_space = action_space
         self.feature_mean = feature_mean
@@ -248,7 +249,7 @@ class MLPBCPolicy:
         group_max_progress: np.ndarray,
         group_phase_lengths: np.ndarray,
     ) -> None:
-        if action_space not in ACTION_SPACES:
+        if action_space not in ACTION_SPACE_SIZES:
             raise ValueError(f"unknown action space: {action_space}")
         self.action_space = action_space
         self.feature_mean = feature_mean
@@ -455,7 +456,7 @@ def load_demo_dataset(
     stride: int = 1,
     label_source: str = "policy_labels",
 ) -> Dataset:
-    if action_space not in ACTION_SPACES:
+    if action_space not in ACTION_SPACE_SIZES:
         raise ValueError(f"unknown action space: {action_space}")
     feature_rows: list[np.ndarray] = []
     action_rows: list[np.ndarray] = []
@@ -746,8 +747,8 @@ def rollout_policy(
         executed_action = action.copy()
         if policy.action_space == "joint_delta":
             executed_action[:5] *= action_gain
-        elif policy.action_space == "ee_delta":
-            executed_action[:6] *= action_gain
+        elif policy.action_space == "ee_tool_delta":
+            executed_action[:5] *= action_gain
         action_norms.append(float(np.linalg.norm(executed_action)))
         if previous_action is not None:
             action_delta_norms.append(float(np.linalg.norm(executed_action - previous_action)))
@@ -762,11 +763,11 @@ def rollout_policy(
             infeasible += int(status["infeasible"])
             controller_failures += int(status["controller_failed"])
             controller_failure_reason = status["failure_reason"] or controller_failure_reason
-        elif policy.action_space == "ee_delta":
-            _, _, status = env.step_ee_delta_action(
+        elif policy.action_space == "ee_tool_delta":
+            _, _, status = env.step_ee_tool_delta_action(
                 executed_action[:3],
-                executed_action[3:6],
-                executed_action[6],
+                executed_action[3:5],
+                executed_action[5],
             )
             clipped_translation += int(status.clipped_translation)
             clipped_rotation += int(status.clipped_rotation)

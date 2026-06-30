@@ -39,6 +39,8 @@ class ControllerLimits:
     max_joint_step: float = 0.035
     max_joint_accel_step: float = 0.018
     posture_gain: float = 0.02
+    orientation_mode: str = "full"
+    tool_axis_index: int = 0
     position_tolerance: float = 0.008
     rotation_tolerance: float = 0.04
 
@@ -248,9 +250,8 @@ class CartesianIKController:
         current_pos = data.site_xpos[self.ee_site_id].copy()
         current_quat = _site_quat_wxyz(data, self.ee_site_id)
         pos_err = target_pos - current_pos
-        rot_err = _orientation_error_rotvec(current_quat, target_quat_wxyz)
+        full_rot_err = _orientation_error_rotvec(current_quat, target_quat_wxyz)
         pos_err, clipped_translation = _clip_norm(pos_err, self.limits.max_step_xyz)
-        rot_err, clipped_rotation = _clip_norm(rot_err, self.limits.max_step_rot)
 
         jacp = np.zeros((3, self.model.nv))
         jacr = np.zeros((3, self.model.nv))
@@ -258,9 +259,55 @@ class CartesianIKController:
         if position_only:
             jac = jacp[:, self.arm_dof_ids]
             task_err = pos_err
-        else:
+            rotation_error = 0.0
+            clipped_rotation = False
+            orientation_mode = "position_only"
+        elif self.limits.orientation_mode == "full":
+            rot_err, clipped_rotation = _clip_norm(full_rot_err, self.limits.max_step_rot)
             jac = np.vstack((jacp[:, self.arm_dof_ids], jacr[:, self.arm_dof_ids]))
             task_err = np.concatenate((pos_err, rot_err))
+            rotation_error = float(np.linalg.norm(full_rot_err))
+            orientation_mode = "full"
+        elif self.limits.orientation_mode == "tool_axis":
+            tool_axis_index = self.limits.tool_axis_index
+            if tool_axis_index not in (0, 1, 2):
+                return self._controller_failure_status(
+                    data,
+                    target_pos,
+                    target_quat_wxyz,
+                    "invalid_tool_axis_index",
+                )
+            tangent_indices = [index for index in range(3) if index != tool_axis_index]
+            current_rotation = _rotation_from_wxyz(current_quat)
+            target_rotation = _rotation_from_wxyz(target_quat_wxyz)
+            current_matrix = current_rotation.as_matrix()
+            current_axis = current_matrix[:, tool_axis_index]
+            target_axis = target_rotation.as_matrix()[:, tool_axis_index]
+            tangent_basis = current_matrix[:, tangent_indices].T
+            axis_error_world = np.cross(current_axis, target_axis)
+            axis_error = tangent_basis @ axis_error_world
+            axis_error, clipped_rotation = _clip_norm(
+                axis_error,
+                self.limits.max_step_rot,
+            )
+            jac = np.vstack(
+                (
+                    jacp[:, self.arm_dof_ids],
+                    tangent_basis @ jacr[:, self.arm_dof_ids],
+                )
+            )
+            task_err = np.concatenate((pos_err, axis_error))
+            rotation_error = float(
+                np.arccos(np.clip(np.dot(current_axis, target_axis), -1.0, 1.0))
+            )
+            orientation_mode = "tool_axis"
+        else:
+            return self._controller_failure_status(
+                data,
+                target_pos,
+                target_quat_wxyz,
+                "invalid_orientation_mode",
+            )
 
         q_current = data.qpos[self.arm_qpos_ids].copy()
         try:
@@ -319,11 +366,15 @@ class CartesianIKController:
                 "non_finite_cartesian_intention",
             )
         feasible_delta_xyz = equivalent_task_error[:3]
-        feasible_delta_rotvec = (
-            np.zeros(3)
-            if position_only
-            else _rotation_from_wxyz(current_quat).inv().apply(equivalent_task_error[3:])
-        )
+        if orientation_mode == "full":
+            feasible_delta_rotvec = _rotation_from_wxyz(current_quat).inv().apply(
+                equivalent_task_error[3:]
+            )
+        elif orientation_mode == "tool_axis":
+            feasible_delta_rotvec = np.zeros(3)
+            feasible_delta_rotvec[tangent_indices] = equivalent_task_error[3:]
+        else:
+            feasible_delta_rotvec = np.zeros(3)
         clipped_joints = joint_step_clipped or joint_accel_clipped or joint_limit_clipped
         saturated = clipped_translation or clipped_rotation or clipped_joints
         # "Infeasible" means the requested target is blocked at a hard joint
@@ -331,15 +382,14 @@ class CartesianIKController:
         # normal temporal saturation and does not imply geometric infeasibility.
         infeasible = joint_limit_clipped and (
             np.linalg.norm(target_pos - current_pos) > self.limits.position_tolerance
-            or np.linalg.norm(_orientation_error_rotvec(current_quat, target_quat_wxyz))
-            > self.limits.rotation_tolerance
+            or rotation_error > self.limits.rotation_tolerance
         )
         data.ctrl[self.arm_actuator_ids] = q_target
         self._last_joint_delta = q_target - q_current
 
         status = IKStatus(
             position_error=float(np.linalg.norm(target_pos - current_pos)),
-            rotation_error=float(np.linalg.norm(_orientation_error_rotvec(current_quat, target_quat_wxyz))),
+            rotation_error=rotation_error,
             clipped_translation=clipped_translation,
             clipped_rotation=clipped_rotation,
             clipped_joints=clipped_joints,

@@ -34,7 +34,7 @@ def test_nearest_neighbor_bc_fits_saved_demo_labels(tmp_path):
     demo_path = tmp_path / "demo.json"
     recorder.write_trial(spec, demo_path)
 
-    dataset = load_demo_dataset([demo_path], action_space="ee_delta")
+    dataset = load_demo_dataset([demo_path], action_space="ee_tool_delta")
     policy = fit_nearest_neighbor_policy(dataset, k=1)
     reloaded_path = tmp_path / "policy.npz"
     policy.save(reloaded_path)
@@ -56,8 +56,8 @@ def test_nearest_neighbor_bc_fits_saved_demo_labels(tmp_path):
     )
 
     assert distance < 1e-9
-    assert action.shape == (7,)
-    assert np.allclose(action, sample["policy_labels"]["ee_delta"], atol=1e-9)
+    assert action.shape == (6,)
+    assert np.allclose(action, sample["policy_labels"]["ee_tool_delta"], atol=1e-9)
 
 
 def test_mlp_bc_saves_loads_and_predicts(tmp_path):

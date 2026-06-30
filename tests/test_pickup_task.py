@@ -90,3 +90,12 @@ def test_pickup_task_steps_policy_action_spaces():
     assert len(next_observation["ee_position"]) == 3
     assert "contact_steps" in metrics
     assert np.isfinite(ee_status.position_error)
+
+    next_observation, metrics, tool_status = evaluator.step_ee_tool_delta_action(
+        np.zeros(3),
+        np.zeros(2),
+        gripper_open=1.0,
+    )
+
+    assert len(next_observation["ee_position"]) == 3
+    assert np.isfinite(tool_status.rotation_error)

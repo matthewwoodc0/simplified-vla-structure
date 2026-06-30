@@ -26,14 +26,13 @@ def action_sequence(length: int) -> list[tuple[np.ndarray, np.ndarray, float]]:
                 0.0015 * np.sin(np.pi * t),
             ]
         )
-        delta_rotvec = np.array(
+        delta_tilt_xy = np.array(
             [
                 0.012 * np.sin(np.pi * t),
                 0.008 * np.cos(2.0 * np.pi * t),
-                0.010 * np.sin(1.5 * np.pi * t),
             ]
         )
-        actions.append((delta_xyz, delta_rotvec, 1.0 - 0.4 * t))
+        actions.append((delta_xyz, delta_tilt_xy, 1.0 - 0.4 * t))
     return actions
 
 
@@ -68,8 +67,8 @@ def rollout(
     joint_accel_clipped = 0
     infeasible = 0
     controller_failed = 0
-    for delta_xyz, delta_rotvec, gripper in actions:
-        env.step_ee_delta_action(delta_xyz, delta_rotvec, gripper)
+    for delta_xyz, delta_tilt_xy, gripper in actions:
+        env.step_ee_tool_delta_action(delta_xyz, delta_tilt_xy, gripper)
         telemetry = env.controller.last_telemetry
         targets.append(telemetry.target_pos)
         ee_positions.append(telemetry.actual_pos)
@@ -125,7 +124,7 @@ def run(args: argparse.Namespace) -> dict:
     deterministic_error = _observation_error(first_obs, repeat_obs)
     nearby_error = _observation_error(first_obs, shifted_obs)
     summary = {
-        "format": "svla_controller_quality_v1",
+        "format": "svla_controller_quality_v2_tool_axis",
         "steps": args.steps,
         "deterministic_error": deterministic_error,
         "nearby_start_error": nearby_error,
