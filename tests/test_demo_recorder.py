@@ -19,7 +19,7 @@ def test_recorded_demo_contains_aligned_joint_and_ee_labels(tmp_path):
     demo = recorder.write_trial(spec, path)
     loaded = json.loads(path.read_text(encoding="utf-8"))
 
-    assert loaded["format"] == "svla_pickup_demo_v2_grasp_tcp"
+    assert loaded["format"] == "svla_pickup_demo_v3_physics_audit"
     assert loaded["summary"]["success"]
     assert loaded["summary"]["failure_category"] == "none"
     assert loaded["metadata"]["no_ml"] is True
@@ -50,6 +50,8 @@ def test_recorded_demo_contains_aligned_joint_and_ee_labels(tmp_path):
     assert "contact_achieved" in sample["success_metrics"]
     assert demo["summary"]["retained_during_hold"]
     assert demo["summary"]["collision_free_approach"]
+    assert demo["summary"]["event_order_valid"]
+    assert demo["summary"]["physical_sanity_pass"]
     assert demo["summary"]["preclose_contact_steps"] == 0
 
 

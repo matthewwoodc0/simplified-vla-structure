@@ -50,6 +50,19 @@ def run(args: argparse.Namespace) -> dict:
             "collision_free_approaches": sum(
                 trial["collision_free_approach"] for trial in trials
             ),
+            "valid_event_orders": sum(trial["event_order_valid"] for trial in trials),
+            "physical_sanity_passes": sum(
+                trial["physical_sanity_pass"] for trial in trials
+            ),
+            "max_gripper_contact_force": max(
+                trial["max_gripper_contact_force"] for trial in trials
+            ),
+            "max_gripper_contact_impulse_before_lift": max(
+                trial["gripper_contact_impulse_before_lift"] for trial in trials
+            ),
+            "max_object_xy_displacement_while_supported": max(
+                trial["max_object_xy_displacement_while_supported"] for trial in trials
+            ),
             "preclose_contact_steps": sum(
                 trial["preclose_contact_steps"] for trial in trials
             ),
@@ -66,6 +79,8 @@ def run(args: argparse.Namespace) -> dict:
             result["successes"] == result["total"]
             and result["controller_failure_steps"] == 0
             and result["collision_free_approaches"] == result["total"]
+            and result["valid_event_orders"] == result["total"]
+            and result["physical_sanity_passes"] == result["total"]
             and result["preclose_contact_steps"] == 0
             for result in by_action_space.values()
         ),
@@ -107,6 +122,8 @@ def _replay_demo(demo: dict, action_space: str, object_start: np.ndarray) -> dic
     metrics = env.get_success_metrics()
     success = bool(
         metrics["collision_free_approach"]
+        and metrics["event_order_valid"]
+        and metrics["physical_sanity_pass"]
         and metrics["contact_achieved"]
         and metrics["max_object_lift"] >= LIFT_CLEARANCE
         and metrics["current_object_lift"] >= RETENTION_CLEARANCE
@@ -119,6 +136,17 @@ def _replay_demo(demo: dict, action_space: str, object_start: np.ndarray) -> dic
         "approach": trial["approach"],
         "success": success,
         "collision_free_approach": bool(metrics["collision_free_approach"]),
+        "event_order_valid": bool(metrics["event_order_valid"]),
+        "early_close": bool(metrics["early_close"]),
+        "reopen_events": int(metrics["reopen_events"]),
+        "physical_sanity_pass": bool(metrics["physical_sanity_pass"]),
+        "max_gripper_contact_force": float(metrics["max_gripper_contact_force"]),
+        "gripper_contact_impulse_before_lift": float(
+            metrics["gripper_contact_impulse_before_lift"]
+        ),
+        "max_object_xy_displacement_while_supported": float(
+            metrics["max_object_xy_displacement_while_supported"]
+        ),
         "preclose_contact_steps": int(metrics["preclose_contact_steps"]),
         "preclose_max_object_displacement": float(
             metrics["preclose_max_object_displacement"]

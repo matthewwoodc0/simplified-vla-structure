@@ -105,6 +105,15 @@ class PolicyTrialResult:
     collision_free_approach: bool
     preclose_contact_steps: int
     preclose_max_object_displacement: float
+    event_order_valid: bool
+    early_close: bool
+    reopen_events: int
+    reopen_command_steps: int
+    max_gripper_contact_force: float
+    gripper_contact_impulse_before_lift: float
+    max_object_xy_displacement_while_supported: float
+    max_object_rotation_while_supported: float
+    physical_sanity_pass: bool
     object_lifted: bool
     retained_during_hold: bool
     min_grasp_position_error: float
@@ -814,6 +823,8 @@ def rollout_policy(
     )
     success = bool(
         metrics["collision_free_approach"]
+        and metrics["event_order_valid"]
+        and metrics["physical_sanity_pass"]
         and reached_grasp
         and metrics["contact_achieved"]
         and object_lifted
@@ -821,6 +832,8 @@ def rollout_policy(
     )
     failure_category, note = env._classify_failure(
         collision_free_approach=bool(metrics["collision_free_approach"]),
+        event_order_valid=bool(metrics["event_order_valid"]),
+        physical_sanity_pass=bool(metrics["physical_sanity_pass"]),
         reached_grasp=reached_grasp,
         contact=bool(metrics["contact_achieved"]),
         lifted=object_lifted,
@@ -854,6 +867,21 @@ def rollout_policy(
         preclose_max_object_displacement=float(
             metrics["preclose_max_object_displacement"]
         ),
+        event_order_valid=bool(metrics["event_order_valid"]),
+        early_close=bool(metrics["early_close"]),
+        reopen_events=int(metrics["reopen_events"]),
+        reopen_command_steps=int(metrics["reopen_command_steps"]),
+        max_gripper_contact_force=float(metrics["max_gripper_contact_force"]),
+        gripper_contact_impulse_before_lift=float(
+            metrics["gripper_contact_impulse_before_lift"]
+        ),
+        max_object_xy_displacement_while_supported=float(
+            metrics["max_object_xy_displacement_while_supported"]
+        ),
+        max_object_rotation_while_supported=float(
+            metrics["max_object_rotation_while_supported"]
+        ),
+        physical_sanity_pass=bool(metrics["physical_sanity_pass"]),
         object_lifted=object_lifted,
         retained_during_hold=bool(retained),
         min_grasp_position_error=float(min_grasp_pos_error),
@@ -890,6 +918,24 @@ def summarize_policy_results(results: list[PolicyTrialResult]) -> dict:
         "failure_categories": _failure_counts(results),
         "collision_free_approach_rate": _rate(
             result.collision_free_approach for result in results
+        ),
+        "event_order_valid_rate": _rate(result.event_order_valid for result in results),
+        "physical_sanity_pass_rate": _rate(
+            result.physical_sanity_pass for result in results
+        ),
+        "early_close_trials": sum(result.early_close for result in results),
+        "reopen_events": sum(result.reopen_events for result in results),
+        "reopen_command_steps": sum(result.reopen_command_steps for result in results),
+        "max_gripper_contact_force": max(
+            (result.max_gripper_contact_force for result in results), default=0.0
+        ),
+        "max_gripper_contact_impulse_before_lift": max(
+            (result.gripper_contact_impulse_before_lift for result in results),
+            default=0.0,
+        ),
+        "max_object_xy_displacement_while_supported": max(
+            (result.max_object_xy_displacement_while_supported for result in results),
+            default=0.0,
         ),
         "preclose_contact_steps": sum(result.preclose_contact_steps for result in results),
         "max_preclose_object_displacement": max(

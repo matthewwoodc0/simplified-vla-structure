@@ -1,6 +1,11 @@
 import numpy as np
 
 from svla.pickup_task import (
+    BASE_OBJECT_HALF_SIZE,
+    MAX_GRIPPER_CONTACT_FORCE,
+    MAX_GRIPPER_IMPULSE_BEFORE_LIFT,
+    MAX_SUPPORTED_XY_DISPLACEMENT,
+    SUPPORT_TOP_Z,
     GraspOrientation,
     ObjectStartPose,
     PickupTaskEvaluator,
@@ -35,6 +40,19 @@ def test_representative_controller_only_pickup_succeeds():
     assert result.collision_free_approach
     assert result.preclose_contact_steps == 0
     assert result.preclose_max_object_displacement <= 0.001
+    assert result.event_order_valid
+    assert not result.early_close
+    assert result.reopen_events == 0
+    assert result.physical_sanity_pass
+    assert result.max_gripper_contact_force <= MAX_GRIPPER_CONTACT_FORCE
+    assert (
+        result.gripper_contact_impulse_before_lift
+        <= MAX_GRIPPER_IMPULSE_BEFORE_LIFT
+    )
+    assert (
+        result.max_object_xy_displacement_while_supported
+        <= MAX_SUPPORTED_XY_DISPLACEMENT
+    )
     assert result.failure_category == "none"
     assert result.final_ee_position_error < 0.01
 
@@ -112,7 +130,8 @@ def test_scripted_open_gripper_approach_does_not_touch_or_move_object():
     settled_start = evaluator.object_position.copy()
     commands, grasp_pos, _ = evaluator.scripted_controller_commands(spec, settled_start)
 
-    assert np.allclose(grasp_pos, settled_start, atol=1e-12)
+    assert np.allclose(grasp_pos[:2], settled_start[:2], atol=1e-12)
+    assert grasp_pos[2] == OBJECT_START_Z
     for command in commands:
         if command.gripper_open <= 0.5:
             break
@@ -132,3 +151,50 @@ def test_scripted_open_gripper_approach_does_not_touch_or_move_object():
     assert metrics["collision_free_approach"]
     assert metrics["preclose_contact_steps"] == 0
     assert metrics["preclose_max_object_displacement"] <= 1e-9
+
+
+def test_early_close_and_reopen_are_reported_as_invalid_event_order():
+    evaluator = PickupTaskEvaluator()
+    observation = evaluator.reset(np.array([0.0, -0.235, OBJECT_START_Z]))
+    zero_joint_delta = np.zeros(len(observation["joint_positions"]))
+
+    evaluator.step_joint_delta_action(zero_joint_delta, gripper_open=0.0)
+    _, metrics, _ = evaluator.step_joint_delta_action(
+        zero_joint_delta,
+        gripper_open=1.0,
+    )
+
+    assert metrics["early_close"]
+    assert metrics["reopen_events"] == 1
+    assert metrics["reopen_command_steps"] == 1
+    assert not metrics["event_order_valid"]
+
+
+def test_object_geometry_and_friction_configuration_updates_dynamics_and_grasp_target():
+    half_size = BASE_OBJECT_HALF_SIZE * np.array([0.95, 1.05, 0.95])
+    evaluator = PickupTaskEvaluator(
+        object_half_size=half_size,
+        object_sliding_friction=1.6,
+    )
+    spec = default_trial_specs(repeats=1)[0]
+    xyz = spec.object_pose.xyz.copy()
+    xyz[2] = SUPPORT_TOP_Z + half_size[2]
+    evaluator.reset(xyz)
+    settled = evaluator.object_position.copy()
+    _, grasp_pos, _ = evaluator.scripted_controller_commands(spec, settled)
+
+    assert np.allclose(evaluator.model.geom_size[evaluator.object_geom_id], half_size)
+    assert evaluator.model.geom_friction[evaluator.object_geom_id, 0] == 1.6
+    assert evaluator.object_position[2] > SUPPORT_TOP_Z
+    assert grasp_pos[2] == OBJECT_START_Z
+    assert not np.allclose(grasp_pos[:2], settled[:2])
+
+
+def test_contact_model_parameters_are_bounded_and_valid():
+    evaluator = PickupTaskEvaluator()
+    jaw_actuator = evaluator.controller.gripper_actuator_ids[0]
+    pad_ids = list(evaluator.gripper_geom_ids)
+
+    assert np.allclose(evaluator.model.actuator_forcerange[jaw_actuator], [-0.2, 0.2])
+    assert np.all(evaluator.model.geom_solimp[pad_ids, 0] <= 1.0)
+    assert np.all(evaluator.model.geom_solimp[pad_ids, 0] <= evaluator.model.geom_solimp[pad_ids, 1])

@@ -7,6 +7,10 @@ from pathlib import Path
 import numpy as np
 
 from svla.pickup_task import (
+    MAX_GRIPPER_CONTACT_FORCE,
+    MAX_GRIPPER_IMPULSE_BEFORE_LIFT,
+    MAX_SUPPORTED_ROTATION,
+    MAX_SUPPORTED_XY_DISPLACEMENT,
     PRECLOSE_DISPLACEMENT_TOLERANCE,
     PickupTaskEvaluator,
     default_trial_specs,
@@ -46,6 +50,8 @@ def run(args: argparse.Namespace) -> dict:
         grasp_target_error = float(np.linalg.norm(grasp_pos - settled_start))
         success = bool(
             metrics["collision_free_approach"]
+            and metrics["event_order_valid"]
+            and metrics["physical_sanity_pass"]
             and metrics["contact_achieved"]
             and metrics["object_lifted"]
             and metrics["retained_during_hold"]
@@ -60,6 +66,22 @@ def run(args: argparse.Namespace) -> dict:
                 "repeat": spec.repeat,
                 "success": success,
                 "collision_free_approach": bool(metrics["collision_free_approach"]),
+                "event_order_valid": bool(metrics["event_order_valid"]),
+                "early_close": bool(metrics["early_close"]),
+                "reopen_events": int(metrics["reopen_events"]),
+                "physical_sanity_pass": bool(metrics["physical_sanity_pass"]),
+                "max_gripper_contact_force": float(
+                    metrics["max_gripper_contact_force"]
+                ),
+                "gripper_contact_impulse_before_lift": float(
+                    metrics["gripper_contact_impulse_before_lift"]
+                ),
+                "max_object_xy_displacement_while_supported": float(
+                    metrics["max_object_xy_displacement_while_supported"]
+                ),
+                "max_object_rotation_while_supported": float(
+                    metrics["max_object_rotation_while_supported"]
+                ),
                 "preclose_contact_steps": int(metrics["preclose_contact_steps"]),
                 "preclose_max_object_displacement": float(
                     metrics["preclose_max_object_displacement"]
@@ -81,6 +103,12 @@ def run(args: argparse.Namespace) -> dict:
         "collision_free_approaches": sum(
             trial["collision_free_approach"] for trial in trials
         ),
+        "valid_event_orders": sum(trial["event_order_valid"] for trial in trials),
+        "physical_sanity_passes": sum(
+            trial["physical_sanity_pass"] for trial in trials
+        ),
+        "early_close_trials": sum(trial["early_close"] for trial in trials),
+        "reopen_events": sum(trial["reopen_events"] for trial in trials),
         "preclose_contact_steps": sum(
             trial["preclose_contact_steps"] for trial in trials
         ),
@@ -89,6 +117,24 @@ def run(args: argparse.Namespace) -> dict:
         ),
         "preclose_displacement_tolerance": PRECLOSE_DISPLACEMENT_TOLERANCE,
         "max_grasp_target_error": max(trial["grasp_target_error"] for trial in trials),
+        "max_gripper_contact_force": max(
+            trial["max_gripper_contact_force"] for trial in trials
+        ),
+        "max_gripper_contact_impulse_before_lift": max(
+            trial["gripper_contact_impulse_before_lift"] for trial in trials
+        ),
+        "max_object_xy_displacement_while_supported": max(
+            trial["max_object_xy_displacement_while_supported"] for trial in trials
+        ),
+        "max_object_rotation_while_supported": max(
+            trial["max_object_rotation_while_supported"] for trial in trials
+        ),
+        "audit_limits": {
+            "max_gripper_contact_force": MAX_GRIPPER_CONTACT_FORCE,
+            "max_gripper_contact_impulse_before_lift": MAX_GRIPPER_IMPULSE_BEFORE_LIFT,
+            "max_object_xy_displacement_while_supported": MAX_SUPPORTED_XY_DISPLACEMENT,
+            "max_object_rotation_while_supported": MAX_SUPPORTED_ROTATION,
+        },
         "close_contacts": sum(trial["close_contact_achieved"] for trial in trials),
         "retained_pickups": sum(trial["retained_during_hold"] for trial in trials),
         "controller_failure_steps": sum(

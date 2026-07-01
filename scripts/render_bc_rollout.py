@@ -11,6 +11,7 @@ import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 from svla.pickup_task import (
     LIFT_CLEARANCE,
@@ -19,6 +20,8 @@ from svla.pickup_task import (
     default_trial_specs,
 )
 from svla.state_bc import TaskContext, load_policy, observation_to_features
+
+from train_state_bc import evaluation_specs
 
 
 def _overlay(frame: np.ndarray, lines: list[str]) -> None:
@@ -89,6 +92,14 @@ def _glyph(char: str) -> list[str]:
     return glyphs.get(char.upper(), glyphs[" "])
 
 
+def _trial_specs(eval_mode: str) -> dict:
+    if eval_mode == "default":
+        specs = default_trial_specs(repeats=1)
+    else:
+        specs = evaluation_specs(eval_mode, train_grid="default", repeats=1)
+    return {spec.trial_id: spec for spec in specs}
+
+
 def render_rollout(
     output_path: Path,
     policy_path: Path,
@@ -98,15 +109,17 @@ def render_rollout(
     fps: int,
     max_steps: int,
     search_window: int,
+    eval_mode: str = "default",
 ) -> dict:
     ffmpeg = shutil.which("ffmpeg")
     if ffmpeg is None:
         raise RuntimeError("ffmpeg is required to export MP4 videos.")
 
     policy = load_policy(policy_path)
-    specs = {spec.trial_id: spec for spec in default_trial_specs(repeats=1)}
+    specs = _trial_specs(eval_mode)
     if trial_id not in specs:
-        raise ValueError(f"Unknown trial_id {trial_id}")
+        valid = sorted(specs)
+        raise ValueError(f"Unknown trial_id {trial_id} for eval_mode={eval_mode}; valid: {valid}")
     spec = specs[trial_id]
 
     env = PickupTaskEvaluator()
@@ -226,6 +239,8 @@ def render_rollout(
         )
         success = bool(
             metrics["collision_free_approach"]
+            and metrics["event_order_valid"]
+            and metrics["physical_sanity_pass"]
             and reached_grasp
             and metrics["contact_achieved"]
             and object_lifted
@@ -269,6 +284,12 @@ def main() -> None:
     )
     parser.add_argument("--trial-id", type=int, default=1)
     parser.add_argument(
+        "--eval-mode",
+        choices=("default", "final", "audit", "test", "heldout"),
+        default="default",
+        help="Trial grid for --trial-id (BC physics audit uses final, ids 4001+).",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=None,
@@ -300,6 +321,7 @@ def main() -> None:
         args.fps,
         args.max_steps,
         args.search_window,
+        eval_mode=args.eval_mode,
     )
     print(summary)
     print(f"wrote {output}")

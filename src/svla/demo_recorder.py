@@ -114,7 +114,7 @@ class PickupDemoRecorder:
             clipped_joints=clipped_joints,
         )
         return {
-            "format": "svla_pickup_demo_v2_grasp_tcp",
+            "format": "svla_pickup_demo_v3_physics_audit",
             "metadata": {
                 "trial_spec": {
                     "trial_id": spec.trial_id,
@@ -174,6 +174,8 @@ class PickupDemoRecorder:
         )
         reached_grasp = grasp_position_error <= 0.012 and grasp_rotation_error <= 0.22
         collision_free_approach = bool(metrics["collision_free_approach"])
+        event_order_valid = bool(metrics["event_order_valid"])
+        physical_sanity_pass = bool(metrics["physical_sanity_pass"])
         contact_during_close = int(close_phase.get("contact_steps_delta", 0)) > 0
         object_lifted = bool(metrics["max_object_lift"] >= LIFT_CLEARANCE)
         retained = (
@@ -184,6 +186,8 @@ class PickupDemoRecorder:
         )
         failure_category, note = self.env._classify_failure(
             collision_free_approach=collision_free_approach,
+            event_order_valid=event_order_valid,
+            physical_sanity_pass=physical_sanity_pass,
             reached_grasp=reached_grasp,
             contact=contact_during_close,
             lifted=object_lifted,
@@ -195,6 +199,8 @@ class PickupDemoRecorder:
         return {
             "success": bool(
                 collision_free_approach
+                and event_order_valid
+                and physical_sanity_pass
                 and reached_grasp
                 and contact_during_close
                 and object_lifted
@@ -213,6 +219,20 @@ class PickupDemoRecorder:
             "post_hold_grasp_rotation_offset": post_hold_rotation_offset,
             "contact_achieved": bool(contact_during_close),
             "collision_free_approach": collision_free_approach,
+            "event_order_valid": event_order_valid,
+            "early_close": bool(metrics["early_close"]),
+            "reopen_events": int(metrics["reopen_events"]),
+            "physical_sanity_pass": physical_sanity_pass,
+            "max_gripper_contact_force": float(metrics["max_gripper_contact_force"]),
+            "gripper_contact_impulse_before_lift": float(
+                metrics["gripper_contact_impulse_before_lift"]
+            ),
+            "max_object_xy_displacement_while_supported": float(
+                metrics["max_object_xy_displacement_while_supported"]
+            ),
+            "max_object_rotation_while_supported": float(
+                metrics["max_object_rotation_while_supported"]
+            ),
             "preclose_contact_steps": int(metrics["preclose_contact_steps"]),
             "preclose_max_object_displacement": float(
                 metrics["preclose_max_object_displacement"]

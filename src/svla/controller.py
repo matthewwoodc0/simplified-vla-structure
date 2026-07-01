@@ -43,6 +43,7 @@ class ControllerLimits:
     tool_axis_index: int = 0
     position_tolerance: float = 0.008
     rotation_tolerance: float = 0.04
+    min_gripper_open_fraction: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -484,6 +485,9 @@ class CartesianIKController:
 
     def set_gripper(self, data: mujoco.MjData, open_fraction: float) -> None:
         open_fraction = float(np.clip(open_fraction, 0.0, 1.0))
+        open_fraction = self.limits.min_gripper_open_fraction + open_fraction * (
+            1.0 - self.limits.min_gripper_open_fraction
+        )
         targets = self.gripper_ranges[:, 0] + open_fraction * (
             self.gripper_ranges[:, 1] - self.gripper_ranges[:, 0]
         )
