@@ -29,6 +29,7 @@ def run(output: Path, repeats: int, stop_after: int | None = None) -> dict:
                 f"orientation={result.orientation} pose={result.object_pose} "
                 f"approach={result.approach} pos_err={result.final_ee_position_error:.4f} "
                 f"rot_err={result.final_ee_rotation_error:.3f} contact={int(result.contact_achieved)} "
+                f"clean={int(result.collision_free_approach)} "
                 f"lifted={int(result.object_lifted)} retained={int(result.retained_during_hold)} "
                 f"failure={result.failure_category}"
             )

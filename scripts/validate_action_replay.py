@@ -47,6 +47,15 @@ def run(args: argparse.Namespace) -> dict:
             "controller_failure_steps": sum(
                 trial["controller_failure_steps"] for trial in trials
             ),
+            "collision_free_approaches": sum(
+                trial["collision_free_approach"] for trial in trials
+            ),
+            "preclose_contact_steps": sum(
+                trial["preclose_contact_steps"] for trial in trials
+            ),
+            "max_preclose_object_displacement": max(
+                trial["preclose_max_object_displacement"] for trial in trials
+            ),
             "trials": trials,
         }
     summary = {
@@ -56,6 +65,8 @@ def run(args: argparse.Namespace) -> dict:
         "pass": all(
             result["successes"] == result["total"]
             and result["controller_failure_steps"] == 0
+            and result["collision_free_approaches"] == result["total"]
+            and result["preclose_contact_steps"] == 0
             for result in by_action_space.values()
         ),
     }
@@ -95,7 +106,8 @@ def _replay_demo(demo: dict, action_space: str, object_start: np.ndarray) -> dic
 
     metrics = env.get_success_metrics()
     success = bool(
-        metrics["contact_achieved"]
+        metrics["collision_free_approach"]
+        and metrics["contact_achieved"]
         and metrics["max_object_lift"] >= LIFT_CLEARANCE
         and metrics["current_object_lift"] >= RETENTION_CLEARANCE
         and metrics["retained_during_hold"]
@@ -106,6 +118,11 @@ def _replay_demo(demo: dict, action_space: str, object_start: np.ndarray) -> dic
         "object_pose": trial["object_pose"],
         "approach": trial["approach"],
         "success": success,
+        "collision_free_approach": bool(metrics["collision_free_approach"]),
+        "preclose_contact_steps": int(metrics["preclose_contact_steps"]),
+        "preclose_max_object_displacement": float(
+            metrics["preclose_max_object_displacement"]
+        ),
         "steps": len(demo["samples"]),
         **counts,
     }

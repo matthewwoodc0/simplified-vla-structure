@@ -89,6 +89,10 @@ class PickupDemoRecorder:
                     "phase": command.phase,
                     "samples": len(samples) - phase_first_sample,
                     "contact_steps_delta": phase_end["contact_steps"] - phase_start["contact_steps"],
+                    "preclose_contact_steps_delta": (
+                        phase_end["preclose_contact_steps"]
+                        - phase_start["preclose_contact_steps"]
+                    ),
                     "lifted_steps_delta": phase_end["lifted_steps"] - phase_start["lifted_steps"],
                     "final_position_error": float(last_status.position_error)
                     if last_status is not None
@@ -110,7 +114,7 @@ class PickupDemoRecorder:
             clipped_joints=clipped_joints,
         )
         return {
-            "format": "svla_pickup_demo_v1",
+            "format": "svla_pickup_demo_v2_grasp_tcp",
             "metadata": {
                 "trial_spec": {
                     "trial_id": spec.trial_id,
@@ -128,6 +132,7 @@ class PickupDemoRecorder:
                     ),
                 },
                 "no_ml": True,
+                "ee_frame": "calibrated grasp-center TCP",
             },
             "summary": summary,
             "phase_summaries": phase_summaries,
@@ -168,6 +173,7 @@ class PickupDemoRecorder:
             grasp_phase.get("final_rotation_error", post_hold_rotation_offset)
         )
         reached_grasp = grasp_position_error <= 0.012 and grasp_rotation_error <= 0.22
+        collision_free_approach = bool(metrics["collision_free_approach"])
         contact_during_close = int(close_phase.get("contact_steps_delta", 0)) > 0
         object_lifted = bool(metrics["max_object_lift"] >= LIFT_CLEARANCE)
         retained = (
@@ -177,6 +183,7 @@ class PickupDemoRecorder:
             and metrics["gripper_object_distance"] <= 0.045
         )
         failure_category, note = self.env._classify_failure(
+            collision_free_approach=collision_free_approach,
             reached_grasp=reached_grasp,
             contact=contact_during_close,
             lifted=object_lifted,
@@ -186,7 +193,13 @@ class PickupDemoRecorder:
             clipped_joint_steps=clipped_joints,
         )
         return {
-            "success": bool(reached_grasp and contact_during_close and object_lifted and retained),
+            "success": bool(
+                collision_free_approach
+                and reached_grasp
+                and contact_during_close
+                and object_lifted
+                and retained
+            ),
             "failure_category": failure_category,
             "note": note,
             "object_start_pose": _round_list(settled_start),
@@ -199,6 +212,11 @@ class PickupDemoRecorder:
             "post_hold_grasp_position_offset": post_hold_grasp_offset,
             "post_hold_grasp_rotation_offset": post_hold_rotation_offset,
             "contact_achieved": bool(contact_during_close),
+            "collision_free_approach": collision_free_approach,
+            "preclose_contact_steps": int(metrics["preclose_contact_steps"]),
+            "preclose_max_object_displacement": float(
+                metrics["preclose_max_object_displacement"]
+            ),
             "object_lifted": object_lifted,
             "retained_during_hold": bool(retained),
             "final_object_pose": _round_list(self.env.object_position),

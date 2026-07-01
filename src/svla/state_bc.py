@@ -102,6 +102,9 @@ class PolicyTrialResult:
     note: str
     steps: int
     contact_achieved: bool
+    collision_free_approach: bool
+    preclose_contact_steps: int
+    preclose_max_object_displacement: float
     object_lifted: bool
     retained_during_hold: bool
     min_grasp_position_error: float
@@ -795,7 +798,7 @@ def rollout_policy(
         if (
             metrics["current_object_lift"] >= RETENTION_CLEARANCE
             and metrics["lifted_steps"] >= 180
-            and metrics["contact_steps"] >= 60
+            and metrics["close_contact_steps"] >= 60
             and env.gripper_object_distance() <= 0.045
         ):
             break
@@ -806,11 +809,18 @@ def rollout_policy(
     retained = (
         metrics["current_object_lift"] >= RETENTION_CLEARANCE
         and metrics["lifted_steps"] >= 180
-        and metrics["contact_steps"] >= 60
+        and metrics["close_contact_steps"] >= 60
         and metrics["gripper_object_distance"] <= 0.045
     )
-    success = bool(reached_grasp and metrics["contact_achieved"] and object_lifted and retained)
+    success = bool(
+        metrics["collision_free_approach"]
+        and reached_grasp
+        and metrics["contact_achieved"]
+        and object_lifted
+        and retained
+    )
     failure_category, note = env._classify_failure(
+        collision_free_approach=bool(metrics["collision_free_approach"]),
         reached_grasp=reached_grasp,
         contact=bool(metrics["contact_achieved"]),
         lifted=object_lifted,
@@ -839,6 +849,11 @@ def rollout_policy(
         note=note,
         steps=len(action_norms),
         contact_achieved=bool(metrics["contact_achieved"]),
+        collision_free_approach=bool(metrics["collision_free_approach"]),
+        preclose_contact_steps=int(metrics["preclose_contact_steps"]),
+        preclose_max_object_displacement=float(
+            metrics["preclose_max_object_displacement"]
+        ),
         object_lifted=object_lifted,
         retained_during_hold=bool(retained),
         min_grasp_position_error=float(min_grasp_pos_error),
@@ -873,6 +888,14 @@ def summarize_policy_results(results: list[PolicyTrialResult]) -> dict:
         "by_object_pose": _bucket_rates(results, "object_pose"),
         "by_orientation": _bucket_rates(results, "orientation"),
         "failure_categories": _failure_counts(results),
+        "collision_free_approach_rate": _rate(
+            result.collision_free_approach for result in results
+        ),
+        "preclose_contact_steps": sum(result.preclose_contact_steps for result in results),
+        "max_preclose_object_displacement": max(
+            (result.preclose_max_object_displacement for result in results),
+            default=0.0,
+        ),
         "mean_steps": _mean([result.steps for result in results]),
         "mean_action_l2": _mean([result.action_l2_mean for result in results]),
         "mean_action_delta_l2": _mean([result.action_delta_l2_mean for result in results]),

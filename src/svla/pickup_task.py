@@ -23,9 +23,10 @@ PICKUP_MODEL_PATH = PROJECT_ROOT / "assets" / "pickup_scene.xml"
 SUPPORT_TOP_Z = 0.056
 OBJECT_HALF_HEIGHT = 0.013
 OBJECT_START_Z = SUPPORT_TOP_Z + OBJECT_HALF_HEIGHT
-OBJECT_OFFSET_FROM_EE_LOCAL = np.array([-0.017, 0.008, 0.0])
 LIFT_CLEARANCE = 0.018
 RETENTION_CLEARANCE = 0.015
+PRECLOSE_OPEN_THRESHOLD = 0.5
+PRECLOSE_DISPLACEMENT_TOLERANCE = 0.001
 
 
 @dataclass(frozen=True)
@@ -89,6 +90,9 @@ class PickupTrialResult:
     final_object_lift: float
     max_object_lift: float
     gripper_object_distance: float
+    collision_free_approach: bool
+    preclose_contact_steps: int
+    preclose_max_object_displacement: float
     clipped_translation_steps: int
     clipped_rotation_steps: int
     clipped_joint_steps: int
@@ -157,6 +161,10 @@ class PickupTaskEvaluator:
         self._episode_object_start = np.array([0.0, -0.235, OBJECT_START_Z])
         self._episode_max_lift = 0.0
         self._episode_contact_steps = 0
+        self._episode_close_contact_steps = 0
+        self._episode_preclose_contact_steps = 0
+        self._episode_preclose_max_object_displacement = 0.0
+        self._episode_closure_started = False
         self._episode_lifted_steps = 0
         self.reset(np.array([0.0, -0.235, OBJECT_START_Z]))
 
@@ -176,6 +184,10 @@ class PickupTaskEvaluator:
         self._episode_object_start = self.object_position.copy()
         self._episode_max_lift = 0.0
         self._episode_contact_steps = 0
+        self._episode_close_contact_steps = 0
+        self._episode_preclose_contact_steps = 0
+        self._episode_preclose_max_object_displacement = 0.0
+        self._episode_closure_started = False
         self._episode_lifted_steps = 0
         return self.get_observation()
 
@@ -210,13 +222,23 @@ class PickupTaskEvaluator:
 
     def get_success_metrics(self) -> dict:
         lift = float(self.object_position[2] - self._episode_object_start[2])
+        collision_free_approach = (
+            self._episode_preclose_contact_steps == 0
+            and self._episode_preclose_max_object_displacement
+            <= PRECLOSE_DISPLACEMENT_TOLERANCE
+        )
         return {
-            "contact_achieved": self._episode_contact_steps > 0,
+            "contact_achieved": self._episode_close_contact_steps > 0,
+            "collision_free_approach": collision_free_approach,
+            "preclose_contact_steps": int(self._episode_preclose_contact_steps),
+            "preclose_max_object_displacement": float(
+                self._episode_preclose_max_object_displacement
+            ),
             "object_lifted": self._episode_max_lift >= LIFT_CLEARANCE,
             "retained_during_hold": (
                 lift >= RETENTION_CLEARANCE
                 and self._episode_lifted_steps >= 180
-                and self._episode_contact_steps >= 60
+                and self._episode_close_contact_steps >= 60
                 and self.gripper_object_distance() <= 0.045
             ),
             "current_object_lift": lift,
@@ -225,6 +247,8 @@ class PickupTaskEvaluator:
             "gripper_object_contact": bool(self.gripper_object_contact),
             "object_support_contact": bool(self.object_support_contact),
             "contact_steps": int(self._episode_contact_steps),
+            "close_contact_steps": int(self._episode_close_contact_steps),
+            "closure_started": bool(self._episode_closure_started),
             "lifted_steps": int(self._episode_lifted_steps),
         }
 
@@ -237,14 +261,7 @@ class PickupTaskEvaluator:
     ) -> tuple[dict, dict, object]:
         status = self.controller.move_toward(self.data, target_pos, target_quat_wxyz)
         self.controller.set_gripper(self.data, gripper_open)
-        for _ in range(substeps):
-            mujoco.mj_step(self.model, self.data)
-            lift = float(self.object_position[2] - self._episode_object_start[2])
-            self._episode_max_lift = max(self._episode_max_lift, lift)
-            if self.gripper_object_contact:
-                self._episode_contact_steps += 1
-            if lift >= LIFT_CLEARANCE and not self.object_support_contact:
-                self._episode_lifted_steps += 1
+        self._advance_episode_physics(substeps, gripper_open)
         return self.get_observation(), self.get_success_metrics(), status
 
     def step_ee_delta_action(
@@ -272,7 +289,7 @@ class PickupTaskEvaluator:
 
         controller_status = self.controller.move_toward(self.data, target_pos, target_quat)
         self.controller.set_gripper(self.data, gripper_open)
-        self._advance_episode_physics(substeps)
+        self._advance_episode_physics(substeps, gripper_open)
         status = IKStatus(
             position_error=controller_status.position_error,
             rotation_error=controller_status.rotation_error,
@@ -347,7 +364,7 @@ class PickupTaskEvaluator:
         clipped_joints = not np.allclose(raw_target, q_target)
         self.data.ctrl[self.controller.arm_actuator_ids] = q_target
         self.controller.set_gripper(self.data, gripper_open)
-        self._advance_episode_physics(substeps)
+        self._advance_episode_physics(substeps, gripper_open)
         actual_pos, actual_quat = self.controller.ee_pose(self.data)
         status = {
             "position_error": 0.0,
@@ -380,7 +397,7 @@ class PickupTaskEvaluator:
             settled_start = self.object_position.copy()
         grasp_quat = spec.orientation.quat_wxyz
         grasp_rotation = spec.orientation.rotation
-        grasp_pos = settled_start - grasp_rotation.apply(OBJECT_OFFSET_FROM_EE_LOCAL)
+        grasp_pos = settled_start.copy()
         commands = [
             ScriptedControllerCommand(
                 phase=f"approach_{index}",
@@ -450,7 +467,7 @@ class PickupTaskEvaluator:
 
         grasp_quat = spec.orientation.quat_wxyz
         grasp_rotation = spec.orientation.rotation
-        grasp_pos = settled_start - grasp_rotation.apply(OBJECT_OFFSET_FROM_EE_LOCAL)
+        grasp_pos = settled_start.copy()
         waypoints = self._approach_waypoints(grasp_pos, grasp_rotation, spec.approach)
         clipped_translation = 0
         clipped_rotation = 0
@@ -477,10 +494,9 @@ class PickupTaskEvaluator:
         for _ in range(260):
             status = self.controller.move_toward(self.data, grasp_pos, grasp_quat)
             self.controller.set_gripper(self.data, 0.0)
-            for _ in range(4):
-                mujoco.mj_step(self.model, self.data)
-                contact_during_close = contact_during_close or self.gripper_object_contact
-                max_lift = max(max_lift, self.object_position[2] - settled_start[2])
+            self._advance_episode_physics(4, gripper_open=0.0)
+            contact_during_close = contact_during_close or self.gripper_object_contact
+            max_lift = max(max_lift, self.object_position[2] - settled_start[2])
             clipped_translation += int(status.clipped_translation)
             clipped_rotation += int(status.clipped_rotation)
             clipped_joints += int(status.clipped_joints)
@@ -497,14 +513,13 @@ class PickupTaskEvaluator:
         for _ in range(300):
             status = self.controller.move_toward(self.data, lift_target, grasp_quat)
             self.controller.set_gripper(self.data, 0.0)
-            for _ in range(4):
-                mujoco.mj_step(self.model, self.data)
-                lift = self.object_position[2] - settled_start[2]
-                max_lift = max(max_lift, lift)
-                if self.gripper_object_contact:
-                    hold_contact_steps += 1
-                if lift >= LIFT_CLEARANCE and not self.object_support_contact:
-                    hold_lifted_steps += 1
+            previous_contact_steps = self._episode_close_contact_steps
+            previous_lifted_steps = self._episode_lifted_steps
+            self._advance_episode_physics(4, gripper_open=0.0)
+            lift = self.object_position[2] - settled_start[2]
+            max_lift = max(max_lift, lift)
+            hold_contact_steps += self._episode_close_contact_steps - previous_contact_steps
+            hold_lifted_steps += self._episode_lifted_steps - previous_lifted_steps
             clipped_translation += int(status.clipped_translation)
             clipped_rotation += int(status.clipped_rotation)
             clipped_joints += int(status.clipped_joints)
@@ -517,8 +532,16 @@ class PickupTaskEvaluator:
             and hold_contact_steps >= 60
             and self.gripper_object_distance() <= 0.045
         )
-        success = reached_grasp and contact_during_close and object_lifted and retained
+        collision_free_approach = self.get_success_metrics()["collision_free_approach"]
+        success = (
+            collision_free_approach
+            and reached_grasp
+            and contact_during_close
+            and object_lifted
+            and retained
+        )
         failure_category, note = self._classify_failure(
+            collision_free_approach=collision_free_approach,
             reached_grasp=reached_grasp,
             contact=contact_during_close,
             lifted=object_lifted,
@@ -561,9 +584,8 @@ class PickupTaskEvaluator:
         for _ in range(max_steps):
             status = self.controller.move_toward(self.data, target_pos, target_quat_wxyz)
             self.controller.set_gripper(self.data, gripper_open)
-            for _ in range(4):
-                mujoco.mj_step(self.model, self.data)
-                max_lift = max(max_lift, self.object_position[2] - OBJECT_START_Z)
+            self._advance_episode_physics(4, gripper_open)
+            max_lift = max(max_lift, self._episode_max_lift)
             clipped_translation += int(status.clipped_translation)
             clipped_rotation += int(status.clipped_rotation)
             clipped_joints += int(status.clipped_joints)
@@ -581,13 +603,28 @@ class PickupTaskEvaluator:
             "max_lift_from_start": max_lift,
         }
 
-    def _advance_episode_physics(self, substeps: int) -> None:
+    def _advance_episode_physics(self, substeps: int, gripper_open: float) -> None:
+        if gripper_open <= PRECLOSE_OPEN_THRESHOLD:
+            self._episode_closure_started = True
         for _ in range(substeps):
             mujoco.mj_step(self.model, self.data)
             lift = float(self.object_position[2] - self._episode_object_start[2])
             self._episode_max_lift = max(self._episode_max_lift, lift)
-            if self.gripper_object_contact:
+            contact = self.gripper_object_contact
+            if contact:
                 self._episode_contact_steps += 1
+                if not self._episode_closure_started:
+                    self._episode_preclose_contact_steps += 1
+                elif gripper_open <= PRECLOSE_OPEN_THRESHOLD:
+                    self._episode_close_contact_steps += 1
+            if not self._episode_closure_started:
+                displacement = float(
+                    np.linalg.norm(self.object_position - self._episode_object_start)
+                )
+                self._episode_preclose_max_object_displacement = max(
+                    self._episode_preclose_max_object_displacement,
+                    displacement,
+                )
             if lift >= LIFT_CLEARANCE and not self.object_support_contact:
                 self._episode_lifted_steps += 1
 
@@ -637,13 +674,12 @@ class PickupTaskEvaluator:
         return False
 
     def gripper_object_distance(self) -> float:
-        grasp_center = self.data.site_xpos[self.controller.ee_site_id] + _rotation_from_wxyz(
-            self.controller.ee_pose(self.data)[1]
-        ).apply(OBJECT_OFFSET_FROM_EE_LOCAL)
+        grasp_center = self.data.site_xpos[self.controller.ee_site_id]
         return float(np.linalg.norm(self.object_position - grasp_center))
 
     def _classify_failure(
         self,
+        collision_free_approach: bool,
         reached_grasp: bool,
         contact: bool,
         lifted: bool,
@@ -652,6 +688,11 @@ class PickupTaskEvaluator:
         final_rotation_error: float,
         clipped_joint_steps: int,
     ) -> tuple[str, str]:
+        if not collision_free_approach:
+            return (
+                "grasp_geometry_failure",
+                "open gripper contacted or displaced the object before closure",
+            )
         if not np.isfinite(final_position_error) or not np.isfinite(final_rotation_error):
             return "evaluation_bug", "non-finite pose error"
         if not reached_grasp:
@@ -707,6 +748,13 @@ class PickupTaskEvaluator:
             gripper_object_distance=self.gripper_object_distance()
             if np.isfinite(grasp_pos).all()
             else float("inf"),
+            collision_free_approach=bool(
+                self.get_success_metrics()["collision_free_approach"]
+            ),
+            preclose_contact_steps=int(self._episode_preclose_contact_steps),
+            preclose_max_object_displacement=float(
+                self._episode_preclose_max_object_displacement
+            ),
             clipped_translation_steps=clipped_translation,
             clipped_rotation_steps=clipped_rotation,
             clipped_joint_steps=clipped_joints,
@@ -758,6 +806,14 @@ def summarize_results(results: Iterable[PickupTrialResult]) -> dict:
         "by_object_pose": _bucket_rates(results, "object_pose"),
         "by_approach": _bucket_rates(results, "approach"),
         "failure_categories": _failure_counts(results),
+        "collision_free_approach_rate": _rate(
+            result.collision_free_approach for result in results
+        ),
+        "preclose_contact_steps": sum(result.preclose_contact_steps for result in results),
+        "max_preclose_object_displacement": max(
+            (result.preclose_max_object_displacement for result in results),
+            default=0.0,
+        ),
     }
 
 

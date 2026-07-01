@@ -65,6 +65,8 @@ This repo currently has the first simulation/control smoke test:
   local predictability, smoothness, tracking error, and saturation reporting.
 - `scripts/validate_action_replay.py` replays both executable action labels across the
   complete controller benchmark and reports saturation rates.
+- `scripts/validate_grasp_geometry.py` verifies that the calibrated grasp-center TCP reaches
+  every pickup target without touching or moving the object before closure.
 - `tests/` verifies controller telemetry, action adapters, pickup evaluation, the reusable
   task API, demo label alignment, executable policy-label replay, controller quality,
   and BC model loading.
@@ -131,9 +133,10 @@ There are several different things you can run or open. They are not the same fe
    - 2 repeats per combination.
 
    Each JSONL record reports object start pose, commanded grasp pose, gripper orientation,
-   final EE pose error, contact, lift, hold retention, and likely failure category. A
-   pickup only counts if the object is contacted, lifted clear of the support, and retained
-   through the hold window.
+   final EE pose error, pre-close contact/displacement, closure contact, lift, hold retention,
+   and likely failure category. A pickup only counts if the open-gripper approach is clean,
+   the object is contacted during closure, lifted clear of the support, and retained through
+   the hold window.
 
 4. Scripted pickup demo export:
 
@@ -242,22 +245,22 @@ Phase 2 - Make the controller experimentally usable
     - tests for adapter labels, demo alignment, repeatability, continuity,
       unreachable actions, and posture behavior.
   Latest controller-quality artifact:
-    - `outputs/controller_quality_tool_axis_summary.json`,
+    - `outputs/controller_quality_grasp_tcp_summary.json`,
     - exact repeat deterministic error: 0 for joints, velocities, EE position, and EE
       quaternion,
     - mean tracking error: 0.00308 m,
-    - max executed joint step: 0.00203 rad,
-    - max executed joint acceleration step: 0.00025 rad,
+    - max executed joint step: 0.00205 rad,
+    - max executed joint acceleration step: 0.00027 rad,
     - zero Cartesian, joint-step, joint-acceleration, joint-limit, infeasible, or controller
       failure events on the 160-step validation stream.
   Remaining caution:
-    - direct reduced-action replay averages 12.2% total saturation and 5.1% hard-limit
-      infeasibility across the broader pickup trajectories; these events remain explicit.
+    - direct reduced-action replay averages 10.8% total saturation, almost entirely bounded
+      joint-step clipping; hard-limit/infeasible rates are 0.06% and remain explicit.
   Exit condition met:
     - the same scripted trajectory can be represented in joint and EE action spaces,
-      `outputs/action_replay_tool_axis_summary.json` reports 18/18 successful direct replay
-      for both action spaces, and the policy-facing EE path is measurable rather than
-      hidden-state-dependent.
+      `outputs/action_replay_grasp_tcp_summary.json` reports 18/18 successful direct replay
+      and 18/18 collision-free approaches for both action spaces, and the policy-facing EE
+      path is measurable rather than hidden-state-dependent.
 
 Phase 3 - Build the first real manipulation task
   Goal: create a simple table/cube pick-place environment.
@@ -265,9 +268,13 @@ Phase 3 - Build the first real manipulation task
   Current output:
     - table/object pickup scene,
     - deterministic scripted pickup policy,
+    - a calibrated grasp-center TCP instead of a controller site on the fixed-jaw tip,
+    - separate pre-close and closure-contact telemetry plus object-displacement reporting,
     - contact, lift, hold-retention, clipping, and failure-category metrics,
-    - `outputs/pickup_trials_tool_axis.jsonl`,
-    - final 36-trial benchmark at 36/36 successful pickups.
+    - `outputs/grasp_geometry_summary.json`: 36/36 clean approaches, zero pre-close contact
+      steps, and zero measurable pre-close object displacement,
+    - `outputs/pickup_trials_grasp_tcp.jsonl`,
+    - final 36-trial benchmark at 36/36 successful pickups and 36/36 clean approaches.
   Remaining controller/task weakness:
     - contact retention is still a narrow-margin simulator behavior even though the final
       repeated benchmark passed all buckets; keep the failure categories in future runs.
@@ -278,8 +285,9 @@ Phase 4 - Dataset generation
   Current output:
     - `scripts/record_pickup_demos.py`,
     - `outputs/scripted_pickup_demos/manifest.json`,
-    - JSON demos with observations, joint-delta labels, full EE labels, reduced tool-axis
-      labels, controller telemetry, and success metrics.
+    - `svla_pickup_demo_v2_grasp_tcp` JSON demos with observations, joint-delta labels, full
+      EE labels, reduced tool-axis labels, controller telemetry, collision-free approach
+      metrics, and success metrics.
   Exit condition met at sample scale:
     - one deterministic trajectory source can export labels for multiple policy heads fairly.
 
@@ -294,42 +302,47 @@ Phase 5 - State-based behavioral cloning
     - rollout JSONL logs with contact, lift, retention, clipping, action magnitude,
       smoothness, nearest-neighbor distance, and failure categories.
   Latest local evidence:
-    - full tests: 37 passed.
-    - controller pickup benchmark: 36/36 successes.
+    - full tests: 38 passed.
+    - controller pickup benchmark: 36/36 successes and 36/36 collision-free approaches.
     - demo generation: 30/30 dense-grid scripted demonstrations succeeded and include
       aligned executable labels plus controller/contact telemetry.
     - the earlier `outputs/state_bc_bounded_ee_final_test/` result is historical only: its
       EE labels encoded clipped absolute pose error and saturated on most rollout steps,
       so its apparent 69/72 EE advantage is not readiness evidence.
-    - final untouched artifact: `outputs/state_bc_tool_axis_final/state_bc_summary.json`.
-    - final joint-delta: 61/72, 84.7%; per-seed 22/24, 20/24, 19/24.
-    - final `ee_tool_delta`: 60/72, 83.3%; per-seed 23/24, 19/24, 18/24.
+    - final untouched artifact: `outputs/state_bc_grasp_tcp_final/state_bc_summary.json`.
+    - final joint-delta: 63/72, 87.5%; per-seed 16/24, 23/24, 24/24.
+    - final `ee_tool_delta`: 63/72, 87.5%; per-seed 22/24, 21/24, 20/24.
     - both policies used the same 30 demos, observations, task contexts, seeds, final
       starts, 128x128 MLP architecture, 300 epochs, rollout limit, gain 1.0, and success
       metrics.
-    - all 23 failures were classified as gripper/contact-model failures; there were zero
-      controller/IK or numerical controller-failure steps.
-    - reduced EE averaged 28.6% total joint saturation, 6.8% hard-limit clipping, and 5.4%
-      infeasible steps; joint delta averaged 5.2% hard-limit/infeasible steps.
+    - joint-delta had 9 gripper/contact failures and 72/72 collision-free approaches.
+    - reduced EE had 5 pre-close grasp-geometry failures, 4 gripper/contact failures, and
+      67/72 collision-free approaches; these are policy interpolation failures because the
+      scripted and direct-replay EE trajectories are 100% clean.
+    - there were zero controller/IK or numerical controller-failure steps.
+    - reduced EE averaged 27.3% total joint saturation, 7.0% hard-limit clipping, and 5.5%
+      infeasible steps; joint delta averaged 8.7% hard-limit/infeasible steps.
   What this proves:
     - the state/demo/action-space/evaluation pipeline runs end to end,
     - joint-delta and reduced EE labels are executable in closed-loop MuJoCo rollouts,
     - failures are categorized instead of hidden behind supervised loss,
     - the bounded tool-axis controller is deterministic, locally predictable, smooth, and
       free of nominal validation saturation,
-    - state BC reaches essentially equal closed-loop performance: joint delta leads by one
-      success over 72 matched rollouts, which is not evidence of an action-space advantage.
+    - state BC reaches equal aggregate closed-loop performance at 63/72 for each action
+      space, which is not evidence of an action-space advantage.
   Likely residual EE failure mode:
     - learned reduced-EE outputs leave the demonstrated local intention distribution often
       enough to invoke the bounded joint-velocity path more frequently than joint delta;
-      on this narrow-margin grasp model that can perturb contact retention even though no
-      controller/IK failure occurs.
+      five rollouts also drifted into the object before closure despite clean demonstrations.
+      This is a policy-generalization weakness, not a hidden controller failure, and it must
+      remain visible during Phase 6.
   What this does not prove:
     - that reduced EE actions are universally better than joint actions,
     - that parity will survive image observations,
     - language conditioning is meaningful on a single pickup task.
   Readiness verdict:
-    - ready to begin Phase 6 vision experiments while preserving this state baseline,
+    - ready to begin Phase 6 vision experiments while preserving this corrected state
+      baseline and the collision-free-approach metric,
     - not ready for language-conditioned VLA training because only one semantic behavior
       is validated.
   Required language gate:
@@ -343,6 +356,8 @@ Phase 6 - Vision policy
     - add fixed-camera RGB observations to the same deterministic demonstrations,
     - freeze the controller, action definitions, train/final starts, seeds, and success
       metrics from Phase 5,
+    - treat any pre-close contact or more than 1 mm of pre-close object displacement as a
+      failed rollout,
     - train the same small vision encoder capacity for joint delta and `ee_tool_delta`,
     - retain the state MLP as a non-visual upper-bound/debugging baseline,
     - keep the final split untouched until architecture and gain choices are frozen.
@@ -411,6 +426,12 @@ Run the pickup benchmark:
 python scripts/run_pickup_trials.py --repeats 2
 ```
 
+Validate grasp-center calibration and collision-free approaches:
+
+```bash
+python scripts/validate_grasp_geometry.py --repeats 2
+```
+
 Run controller-quality validation:
 
 ```bash
@@ -434,7 +455,7 @@ Run the stricter held-out state-BC check:
 ```bash
 python scripts/train_state_bc.py --output-dir outputs/state_bc_generalization --eval-mode both
 python scripts/train_state_bc.py \
-  --output-dir outputs/state_bc_tool_axis_final \
+  --output-dir outputs/state_bc_grasp_tcp_final \
   --policy-type mlp \
   --train-grid dense \
   --eval-mode final \

@@ -66,70 +66,6 @@ GLYPHS = {
 }
 
 
-def render_showcase(output_path: Path, width: int, height: int, fps: int) -> None:
-    ffmpeg = shutil.which("ffmpeg")
-    if ffmpeg is None:
-        raise RuntimeError("ffmpeg is required to export MP4 videos.")
-
-    env = PickupTaskEvaluator()
-    renderer = mujoco.Renderer(env.model, height=height, width=width)
-    specs = {spec.trial_id: spec for spec in default_trial_specs(repeats=1)}
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    command = [
-        ffmpeg,
-        "-y",
-        "-f",
-        "rawvideo",
-        "-vcodec",
-        "rawvideo",
-        "-s",
-        f"{width}x{height}",
-        "-pix_fmt",
-        "rgb24",
-        "-r",
-        str(fps),
-        "-i",
-        "-",
-        "-an",
-        "-vcodec",
-        "libx264",
-        "-pix_fmt",
-        "yuv420p",
-        str(output_path),
-    ]
-
-    clip_summaries = []
-    with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
-        if process.stdin is None:
-            raise RuntimeError("Could not open ffmpeg stdin.")
-        for clip_index, trial_id in enumerate(SHOWCASE_TRIAL_IDS, start=1):
-            spec = specs[trial_id]
-            summary = _render_trial_clip(
-                env=env,
-                renderer=renderer,
-                process=process,
-                spec=spec,
-                clip_index=clip_index,
-                clip_count=len(SHOWCASE_TRIAL_IDS),
-                fps=fps,
-            )
-            clip_summaries.append(summary)
-        process.stdin.close()
-        return_code = process.wait()
-        if return_code != 0:
-            raise RuntimeError(f"ffmpeg failed with exit code {return_code}.")
-
-    renderer.close()
-    for summary in clip_summaries:
-        print(
-            f"clip={summary['clip']} trial={summary['trial_id']} success={int(summary['success'])} "
-            f"contact={int(summary['contact'])} lift={summary['max_lift']:.3f}m "
-            f"hold={int(summary['retained'])} frames={summary['frames']}"
-        )
-    print(f"wrote {output_path}")
-
-
 def _render_trial_clip(env, renderer, process, spec, clip_index: int, clip_count: int, fps: int) -> dict:
     env.reset(spec.object_pose.xyz)
     commands, _, _ = env.scripted_controller_commands(spec)
@@ -167,7 +103,7 @@ def _render_trial_clip(env, renderer, process, spec, clip_index: int, clip_count
                         "SO-101 CONTROLLER PICKUP SHOWCASE",
                         f"CLIP {clip_index}/{clip_count}  {spec.orientation.label}  {spec.object_pose.label}",
                         f"PHASE {command.phase}  GRIPPER {command.gripper_open:.1f}",
-                        f"CONTACT {int(metrics['contact_achieved'])}  LIFT {metrics['max_object_lift']:.3f}M  HOLD {int(metrics['retained_during_hold'])}",
+                        f"CLEAN APPROACH {int(metrics['collision_free_approach'])}  CONTACT {int(metrics['contact_achieved'])}  LIFT {metrics['max_object_lift']:.3f}M",
                         f"EE ERR {status.position_error:.3f}M  ROT ERR {status.rotation_error:.3f}RAD",
                         f"CLIP STEPS {clipped}  JOINT LABELS {len(labels['joint_delta'])}  EE LABELS {len(labels['ee_delta'])}",
                     ],
@@ -201,11 +137,13 @@ def _render_trial_clip(env, renderer, process, spec, clip_index: int, clip_count
         "clip": clip_index,
         "trial_id": spec.trial_id,
         "success": bool(
-            final_metrics["contact_achieved"]
+            final_metrics["collision_free_approach"]
+            and final_metrics["contact_achieved"]
             and final_metrics["object_lifted"]
             and final_metrics["retained_during_hold"]
         ),
         "contact": bool(final_metrics["contact_achieved"]),
+        "collision_free_approach": bool(final_metrics["collision_free_approach"]),
         "max_lift": float(final_metrics["max_object_lift"]),
         "retained": bool(final_metrics["retained_during_hold"]),
         "frames": frames,
@@ -262,6 +200,78 @@ def _draw_text(
         cursor += glyph_width + scale
 
 
+def render_trials(
+    output_path: Path,
+    trial_ids: list[int],
+    width: int,
+    height: int,
+    fps: int,
+) -> None:
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        raise RuntimeError("ffmpeg is required to export MP4 videos.")
+
+    env = PickupTaskEvaluator()
+    renderer = mujoco.Renderer(env.model, height=height, width=width)
+    specs = {spec.trial_id: spec for spec in default_trial_specs(repeats=1)}
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        ffmpeg,
+        "-y",
+        "-f",
+        "rawvideo",
+        "-vcodec",
+        "rawvideo",
+        "-s",
+        f"{width}x{height}",
+        "-pix_fmt",
+        "rgb24",
+        "-r",
+        str(fps),
+        "-i",
+        "-",
+        "-an",
+        "-vcodec",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        str(output_path),
+    ]
+
+    clip_summaries = []
+    with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
+        if process.stdin is None:
+            raise RuntimeError("Could not open ffmpeg stdin.")
+        for clip_index, trial_id in enumerate(trial_ids, start=1):
+            if trial_id not in specs:
+                raise ValueError(f"Unknown trial_id {trial_id}; valid ids are 1–18.")
+            spec = specs[trial_id]
+            summary = _render_trial_clip(
+                env=env,
+                renderer=renderer,
+                process=process,
+                spec=spec,
+                clip_index=clip_index,
+                clip_count=len(trial_ids),
+                fps=fps,
+            )
+            clip_summaries.append(summary)
+        process.stdin.close()
+        return_code = process.wait()
+        if return_code != 0:
+            raise RuntimeError(f"ffmpeg failed with exit code {return_code}.")
+
+    renderer.close()
+    for summary in clip_summaries:
+        print(
+            f"clip={summary['clip']} trial={summary['trial_id']} success={int(summary['success'])} "
+            f"contact={int(summary['contact'])} lift={summary['max_lift']:.3f}m "
+            f"hold={int(summary['retained'])} frames={summary['frames']}"
+        )
+    print(f"wrote {output_path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -269,11 +279,19 @@ def main() -> None:
         type=Path,
         default=PROJECT_ROOT / "outputs" / "pickup_showcase.mp4",
     )
+    parser.add_argument(
+        "--trial-id",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Render only these trial ids (default: showcase set 1, 8, 18).",
+    )
     parser.add_argument("--width", type=int, default=1280)
     parser.add_argument("--height", type=int, default=720)
     parser.add_argument("--fps", type=int, default=30)
     args = parser.parse_args()
-    render_showcase(args.output, args.width, args.height, args.fps)
+    trial_ids = args.trial_id if args.trial_id is not None else list(SHOWCASE_TRIAL_IDS)
+    render_trials(args.output, trial_ids, args.width, args.height, args.fps)
 
 
 if __name__ == "__main__":

@@ -32,6 +32,9 @@ def test_representative_controller_only_pickup_succeeds():
     assert result.contact_achieved
     assert result.object_lifted
     assert result.retained_during_hold
+    assert result.collision_free_approach
+    assert result.preclose_contact_steps == 0
+    assert result.preclose_max_object_displacement <= 0.001
     assert result.failure_category == "none"
     assert result.final_ee_position_error < 0.01
 
@@ -64,6 +67,7 @@ def test_pickup_task_exposes_environment_style_api():
     assert len(observation["joint_positions"]) == 5
     assert len(next_observation["ee_position"]) == 3
     assert "max_object_lift" in metrics
+    assert metrics["collision_free_approach"]
     assert np.isfinite(status.position_error)
 
 
@@ -99,3 +103,32 @@ def test_pickup_task_steps_policy_action_spaces():
 
     assert len(next_observation["ee_position"]) == 3
     assert np.isfinite(tool_status.rotation_error)
+
+
+def test_scripted_open_gripper_approach_does_not_touch_or_move_object():
+    evaluator = PickupTaskEvaluator()
+    spec = default_trial_specs(repeats=1)[0]
+    evaluator.reset(spec.object_pose.xyz)
+    settled_start = evaluator.object_position.copy()
+    commands, grasp_pos, _ = evaluator.scripted_controller_commands(spec, settled_start)
+
+    assert np.allclose(grasp_pos, settled_start, atol=1e-12)
+    for command in commands:
+        if command.gripper_open <= 0.5:
+            break
+        for _ in range(command.max_steps):
+            _, metrics, status = evaluator.step_controller_command(
+                command.target_pos,
+                command.target_quat_wxyz,
+                command.gripper_open,
+            )
+            if (
+                command.stop_on_pose_tolerance
+                and status.position_error <= evaluator.controller.limits.position_tolerance
+                and status.rotation_error <= evaluator.controller.limits.rotation_tolerance
+            ):
+                break
+
+    assert metrics["collision_free_approach"]
+    assert metrics["preclose_contact_steps"] == 0
+    assert metrics["preclose_max_object_displacement"] <= 1e-9
