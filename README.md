@@ -264,7 +264,9 @@ Phase 2 - Make the controller experimentally usable
 
 Phase 3 - Build the first real manipulation task
   Goal: create a simple table/cube pick-place environment.
-  Status: done for pickup, not generalized to arbitrary pick-place.
+  Status: pickup done; scripted pick-and-place (transport/lower/release) validated at 6/6 on a
+  small matrix — BC on pick-place not started. See `Agents.md` for ladder; `researchnotes.md`
+  for BC hypotheses.
   Current output:
     - table/object pickup scene,
     - deterministic scripted pickup policy,
@@ -293,62 +295,48 @@ Phase 4 - Dataset generation
 
 Phase 5 - State-based behavioral cloning
   Goal: answer the action-space question without vision/language noise.
-  Status: implemented and strong enough to begin the vision phase.
+  Status: implemented; physics-audit gate closed 2026-07-01. Vision-only infrastructure may
+  proceed; vision-conditioned training and VLA wait on action-space readiness (see verdict).
   Current output:
-    - `src/svla/state_bc.py`,
-    - `scripts/train_state_bc.py`,
-    - executable `policy_labels` in scripted demos,
-    - joint-delta and reduced tool-axis `.npz` policy artifacts,
-    - rollout JSONL logs with contact, lift, retention, clipping, action magnitude,
-      smoothness, nearest-neighbor distance, and failure categories.
-  Latest local evidence:
-    - full tests: 38 passed.
-    - controller pickup benchmark: 36/36 successes and 36/36 collision-free approaches.
-    - demo generation: 30/30 dense-grid scripted demonstrations succeeded and include
-      aligned executable labels plus controller/contact telemetry.
-    - the earlier `outputs/state_bc_bounded_ee_final_test/` result is historical only: its
-      EE labels encoded clipped absolute pose error and saturated on most rollout steps,
-      so its apparent 69/72 EE advantage is not readiness evidence.
-    - final untouched artifact: `outputs/state_bc_grasp_tcp_final/state_bc_summary.json`.
-    - final joint-delta: 63/72, 87.5%; per-seed 16/24, 23/24, 24/24.
-    - final `ee_tool_delta`: 63/72, 87.5%; per-seed 22/24, 21/24, 20/24.
-    - both policies used the same 30 demos, observations, task contexts, seeds, final
-      starts, 128x128 MLP architecture, 300 epochs, rollout limit, gain 1.0, and success
-      metrics.
-    - joint-delta had 9 gripper/contact failures and 72/72 collision-free approaches.
-    - reduced EE had 5 pre-close grasp-geometry failures, 4 gripper/contact failures, and
-      67/72 collision-free approaches; these are policy interpolation failures because the
-      scripted and direct-replay EE trajectories are 100% clean.
-    - there were zero controller/IK or numerical controller-failure steps.
-    - reduced EE averaged 27.3% total joint saturation, 7.0% hard-limit clipping, and 5.5%
-      infeasible steps; joint delta averaged 8.7% hard-limit/infeasible steps.
+    - `src/svla/state_bc.py`, `scripts/train_state_bc.py`,
+    - executable `policy_labels` in pickup and pick-place demos,
+    - joint-delta and `ee_tool_delta` MLP artifacts under `outputs/state_bc_physics_audit_final/`,
+    - rollout JSONL with force/impulse/disturbance gates, event order, and failure categories.
+  End-of-Phase-5 success-rate ladder (pickup, strict physics gates):
+    Layer 1 — scripted controller:  EE 36/36, joint 36/36 (same expert).
+    Layer 2 — action replay of demo labels: EE 18/18, joint 18/18.
+    Layer 3 — learned MLP BC (final eval, 3×24 trials): EE 15/72 (20.8%), joint 47/72 (65.3%).
+    Replay saturation: EE ~9% pickup / ~7% pick-place; joint ~0%.
+  Canonical evidence (post–physics-audit):
+    - `outputs/state_bc_physics_audit_final/state_bc_summary.json`
+    - `outputs/action_replay_physics_audit_summary.json`
+    - `outputs/pickup_trials_physics_audit.summary.json`
+    - readiness: 288/288 (`outputs/task_robustness_readiness_summary.json`)
+  Historical only (looser gates — do not cite as current):
+    - `outputs/state_bc_grasp_tcp_final/` reported 63/72 (87.5%) for both action spaces.
+  Learned-policy failure modes (pickup final eval):
+    - EE: 41 `event_order_failure`, 3 `early_close` trials, 41.7% `event_order_valid` rate.
+    - Joint: 18 `event_order_failure`, 0 `early_close`, 72.2% `event_order_valid` rate.
   What this proves:
-    - the state/demo/action-space/evaluation pipeline runs end to end,
-    - joint-delta and reduced EE labels are executable in closed-loop MuJoCo rollouts,
-    - failures are categorized instead of hidden behind supervised loss,
-    - the bounded tool-axis controller is deterministic, locally predictable, smooth, and
-      free of nominal validation saturation,
-    - state BC reaches equal aggregate closed-loop performance at 63/72 for each action
-      space, which is not evidence of an action-space advantage.
-  Likely residual EE failure mode:
-    - learned reduced-EE outputs leave the demonstrated local intention distribution often
-      enough to invoke the bounded joint-velocity path more frequently than joint delta;
-      five rollouts also drifted into the object before closure despite clean demonstrations.
-      This is a policy-generalization weakness, not a hidden controller failure, and it must
-      remain visible during Phase 6.
+    - controller-level scripting and demo labels work; the bottleneck is learning, not IK,
+    - joint BC is partially viable under strict gates; EE BC is not a primary comparison yet,
+    - failures are categorized (simulator vs controller envelope vs ML timing), not hidden.
   What this does not prove:
-    - that reduced EE actions are universally better than joint actions,
-    - that parity will survive image observations,
-    - language conditioning is meaningful on a single pickup task.
-  Readiness verdict:
-    - ready to begin Phase 6 vision experiments while preserving this corrected state
-      baseline and the collision-free-approach metric,
-    - not ready for language-conditioned VLA training because only one semantic behavior
-      is validated.
+    - that EE actions are easier to learn than joint actions,
+    - that parity survives vision or longer pick-place horizons,
+    - language conditioning on a single pickup behavior.
+  Scripted pick-and-place (Phase 5 extension, no BC):
+    - 6/6 matrix (`outputs/pick_place_trials.summary.json`), recorded demo with four label
+      fields, replay compare both action spaces succeed on one trial.
+    - left placement uses separate goal/command markers for asymmetric-jaw transport slip.
+  Readiness verdict (details in `Agents.md`):
+    - Phase 6 GO for vision infrastructure (cameras, rendering, dataset format),
+    - vision-conditioned BC / VLA blocked until EE pickup event-order improves or joint-only
+      comparison is accepted,
+    - language/VLA blocked until BC validates multiple instruction-distinct behaviors.
   Required language gate:
-    - add at least two validated behavior variants with instructions that require
-      different actions, such as pick, place-to-left, and place-to-right,
-    - verify the scripted controller and state BC baseline on every variant first.
+    - scripted place-left and place-right validated; BC on pick-place variants not started,
+    - verify state BC on each behavior variant before language conditioning.
 
 Phase 6 - Vision policy
   Goal: add camera observations after the action-space result is measurable.
@@ -384,9 +372,10 @@ Phase 8 - Unity / Isaac branches, if justified
     - not the first local path on this Mac.
 ```
 
-The next concrete build step is Phase 6 RGB observations using the frozen tool-axis
-controller and state-BC comparison. Language remains blocked until multiple
-instruction-distinct behaviors are validated.
+The next concrete build step is Phase 6 vision infrastructure (fixed-camera observations,
+rendering pipeline, dataset format) using the frozen controller and strict physics gates.
+Policy training comparisons should default to joint-delta until EE event-order failures improve.
+See `Agents.md` for the full end-of-Phase-5 ladder, evidence paths, and pick-place notes.
 
 ## Local Setup
 

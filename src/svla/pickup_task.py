@@ -28,6 +28,24 @@ BASE_OBJECT_MASS = 0.004
 BASE_OBJECT_SLIDING_FRICTION = 1.8
 LIFT_CLEARANCE = 0.018
 RETENTION_CLEARANCE = 0.015
+PICK_PLACE_LIFT_HEIGHT = 0.070
+PLACEMENT_XY_TOLERANCE = 0.012
+PLACEMENT_Z_TOLERANCE = 0.006
+GRIPPER_RELEASED_THRESHOLD = 0.50
+PLACEMENT_MARKER_BODIES = {
+    "place_left": ("place_left_marker", "place_left_command_marker"),
+    "place_right": ("place_right_marker", "place_right_marker"),
+}
+PICK_PLACE_TRANSPORT_PHASE = "transport"
+
+
+def maybe_finalize_grasp_at_sample(
+    env: "PickupTaskEvaluator",
+    sample_index: int,
+    boundary_index: int | None,
+) -> None:
+    if boundary_index is not None and int(sample_index) == int(boundary_index):
+        env.finalize_grasp_segment()
 PRECLOSE_OPEN_THRESHOLD = 0.5
 PRECLOSE_DISPLACEMENT_TOLERANCE = 0.001
 EARLY_CLOSE_DISTANCE = 0.015
@@ -71,11 +89,32 @@ class ApproachStrategy:
 
 
 @dataclass(frozen=True)
+class PlacementTarget:
+    label: str
+    goal_marker_body: str
+    command_marker_body: str | None = None
+
+    @property
+    def marker_body(self) -> str:
+        return self.goal_marker_body
+
+
+@dataclass(frozen=True)
 class PickupTrialSpec:
     trial_id: int
     orientation: GraspOrientation
     object_pose: ObjectStartPose
     approach: ApproachStrategy
+    repeat: int = 0
+
+
+@dataclass(frozen=True)
+class PickPlaceTrialSpec:
+    trial_id: int
+    orientation: GraspOrientation
+    object_pose: ObjectStartPose
+    approach: ApproachStrategy
+    placement_target: PlacementTarget
     repeat: int = 0
 
 
@@ -95,6 +134,53 @@ class PickupTrialResult:
     contact_achieved: bool
     object_lifted: bool
     retained_during_hold: bool
+    failure_category: str
+    final_object_pose: list[float]
+    final_object_lift: float
+    max_object_lift: float
+    gripper_object_distance: float
+    collision_free_approach: bool
+    preclose_contact_steps: int
+    preclose_max_object_displacement: float
+    event_order_valid: bool
+    early_close: bool
+    reopen_events: int
+    max_gripper_contact_force: float
+    gripper_contact_impulse_before_lift: float
+    max_object_xy_displacement_while_supported: float
+    max_object_rotation_while_supported: float
+    physical_sanity_pass: bool
+    clipped_translation_steps: int
+    clipped_rotation_steps: int
+    clipped_joint_steps: int
+    note: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class PickPlaceTrialResult:
+    trial_id: int
+    orientation: str
+    object_pose: str
+    approach: str
+    placement_target: str
+    repeat: int
+    success: bool
+    object_start_pose: list[float]
+    commanded_grasp_pose: list[float]
+    commanded_placement_pose: list[float]
+    gripper_orientation_wxyz: list[float]
+    final_ee_position_error: float
+    final_ee_rotation_error: float
+    contact_achieved: bool
+    object_lifted: bool
+    retained_during_hold: bool
+    placement_achieved: bool
+    placement_xy_error: float
+    placement_z_error: float
+    gripper_released: bool
     failure_category: str
     final_object_pose: list[float]
     final_object_lift: float
@@ -147,10 +233,10 @@ class PickupTaskEvaluator:
         self.model = mujoco.MjModel.from_xml_path(str(model_path))
         self.data = mujoco.MjData(self.model)
         limits = ControllerLimits(
-            max_step_xyz=0.018,
+            max_step_xyz=0.019,
             max_step_rot=0.08,
-            max_target_lag_xyz=0.018,
-            max_joint_step=0.028,
+            max_target_lag_xyz=0.019,
+            max_joint_step=0.030,
             posture_gain=0.07,
             orientation_mode="tool_axis",
             tool_axis_index=2,
@@ -182,6 +268,13 @@ class PickupTaskEvaluator:
                 "moving_jaw_pad_4",
             )
         }
+        self._placement_marker_body_ids = {
+            label: (
+                _require_id(self.model, mujoco.mjtObj.mjOBJ_BODY, goal_body),
+                _require_id(self.model, mujoco.mjtObj.mjOBJ_BODY, command_body),
+            )
+            for label, (goal_body, command_body) in PLACEMENT_MARKER_BODIES.items()
+        }
         self.configure_object(
             BASE_OBJECT_HALF_SIZE if object_half_size is None else object_half_size,
             BASE_OBJECT_SLIDING_FRICTION
@@ -212,6 +305,8 @@ class PickupTaskEvaluator:
         self._episode_max_object_xy_displacement_while_supported = 0.0
         self._episode_max_object_rotation_while_supported = 0.0
         self._episode_lifted_steps = 0
+        self._grasp_segment_frozen = False
+        self._grasp_segment_metrics: dict | None = None
         self.reset(
             np.array(
                 [0.0, -0.235, SUPPORT_TOP_Z + float(self.object_half_size[2])]
@@ -285,7 +380,109 @@ class PickupTaskEvaluator:
         self._episode_max_object_xy_displacement_while_supported = 0.0
         self._episode_max_object_rotation_while_supported = 0.0
         self._episode_lifted_steps = 0
+        self._grasp_segment_frozen = False
+        self._grasp_segment_metrics = None
         return self.get_observation()
+
+    def _body_position(self, body_name: str) -> np.ndarray:
+        body_id = _require_id(self.model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+        return self.model.body_pos[body_id].copy()
+
+    def placement_marker_position(self, placement_target: PlacementTarget) -> np.ndarray:
+        return self._body_position(placement_target.goal_marker_body)
+
+    def placement_goal_xyz(self, placement_target: PlacementTarget) -> np.ndarray:
+        marker = self.placement_marker_position(placement_target)
+        return np.array(
+            [
+                marker[0],
+                marker[1],
+                SUPPORT_TOP_Z + float(self.object_half_size[2]),
+            ],
+            dtype=float,
+        )
+
+    def placement_command_xyz(self, placement_target: PlacementTarget) -> np.ndarray:
+        command_body = placement_target.command_marker_body or placement_target.goal_marker_body
+        marker = self._body_position(command_body)
+        return np.array(
+            [
+                marker[0],
+                marker[1],
+                SUPPORT_TOP_Z + float(self.object_half_size[2]),
+            ],
+            dtype=float,
+        )
+
+    def placement_target_xyz(self, placement_target: PlacementTarget) -> np.ndarray:
+        return self.placement_command_xyz(placement_target)
+
+    def evaluate_placement(
+        self,
+        placement_xyz: np.ndarray,
+        goal_xyz: np.ndarray | None = None,
+    ) -> tuple[bool, dict]:
+        goal_xyz = np.asarray(
+            placement_xyz if goal_xyz is None else goal_xyz,
+            dtype=float,
+        )
+        xy_error = float(np.linalg.norm(self.object_position[:2] - goal_xyz[:2]))
+        expected_z = SUPPORT_TOP_Z + float(self.object_half_size[2])
+        z_error = float(abs(self.object_position[2] - expected_z))
+        on_support = bool(self.object_support_contact)
+        gripper_released = (
+            float(self.controller.gripper_open_fraction(self.data))
+            >= GRIPPER_RELEASED_THRESHOLD
+        )
+        placement_achieved = bool(
+            on_support
+            and xy_error <= PLACEMENT_XY_TOLERANCE
+            and z_error <= PLACEMENT_Z_TOLERANCE
+            and gripper_released
+        )
+        return placement_achieved, {
+            "placement_xy_error": xy_error,
+            "placement_z_error": z_error,
+            "object_on_support": on_support,
+            "gripper_released": gripper_released,
+        }
+
+    def finalize_grasp_segment(self) -> dict:
+        """Snapshot pickup grasp gates before intentional gripper release.
+
+        Transport/place phases are excluded from supported-object displacement
+        and impulse accounting so pick-and-place does not weaken pickup gates.
+        """
+        if self._grasp_segment_metrics is not None:
+            return self._grasp_segment_metrics
+        metrics = self.get_success_metrics()
+        self._grasp_segment_metrics = {
+            "collision_free_approach": bool(metrics["collision_free_approach"]),
+            "event_order_valid": bool(metrics["event_order_valid"]),
+            "physical_sanity_pass": bool(metrics["physical_sanity_pass"]),
+            "early_close": bool(metrics["early_close"]),
+            "reopen_events": int(metrics["reopen_events"]),
+            "preclose_contact_steps": int(metrics["preclose_contact_steps"]),
+            "preclose_max_object_displacement": float(
+                metrics["preclose_max_object_displacement"]
+            ),
+            "max_gripper_contact_force": float(metrics["max_gripper_contact_force"]),
+            "gripper_contact_impulse_before_lift": float(
+                metrics["gripper_contact_impulse_before_lift"]
+            ),
+            "max_object_xy_displacement_while_supported": float(
+                metrics["max_object_xy_displacement_while_supported"]
+            ),
+            "max_object_rotation_while_supported": float(
+                metrics["max_object_rotation_while_supported"]
+            ),
+            "contact_achieved": bool(metrics["contact_achieved"]),
+            "object_lifted": bool(metrics["object_lifted"]),
+            "retained_during_hold": bool(metrics["retained_during_hold"]),
+            "max_object_lift": float(metrics["max_object_lift"]),
+        }
+        self._grasp_segment_frozen = True
+        return self._grasp_segment_metrics
 
     def get_observation(self) -> dict:
         ee_pos, ee_quat = self.controller.ee_pose(self.data)
@@ -601,6 +798,187 @@ class PickupTaskEvaluator:
         )
         return commands, grasp_pos, grasp_quat
 
+    def scripted_pick_place_commands(
+        self,
+        spec: PickPlaceTrialSpec,
+        settled_start: np.ndarray | None = None,
+    ) -> tuple[list[ScriptedControllerCommand], np.ndarray, np.ndarray, np.ndarray]:
+        pickup_spec = PickupTrialSpec(
+            trial_id=spec.trial_id,
+            orientation=spec.orientation,
+            object_pose=spec.object_pose,
+            approach=spec.approach,
+            repeat=spec.repeat,
+        )
+        commands, grasp_pos, grasp_quat = self.scripted_controller_commands(
+            pickup_spec,
+            settled_start,
+        )
+        place_goal = self.placement_goal_xyz(spec.placement_target)
+        place_pos = self.placement_command_xyz(spec.placement_target)
+        transport_pos = place_pos + np.array([0.0, 0.0, PICK_PLACE_LIFT_HEIGHT])
+        commands.extend(
+            [
+                ScriptedControllerCommand(
+                    "transport",
+                    transport_pos,
+                    grasp_quat,
+                    0.0,
+                    760,
+                ),
+                ScriptedControllerCommand(
+                    "lower",
+                    place_pos,
+                    grasp_quat,
+                    0.0,
+                    520,
+                ),
+                ScriptedControllerCommand(
+                    "open_gripper",
+                    place_pos,
+                    grasp_quat,
+                    1.0,
+                    220,
+                    stop_on_pose_tolerance=False,
+                ),
+                ScriptedControllerCommand(
+                    "retreat",
+                    place_pos + np.array([0.0, 0.0, 0.060]),
+                    grasp_quat,
+                    1.0,
+                    320,
+                ),
+            ]
+        )
+        return commands, grasp_pos, grasp_quat, place_goal
+
+    def run_pick_place_trial(self, spec: PickPlaceTrialSpec) -> PickPlaceTrialResult:
+        object_start = np.asarray(spec.object_pose.xyz, dtype=float)
+        self.reset(object_start)
+        settled_start = self.object_position.copy()
+        if not np.isfinite(settled_start).all() or settled_start[2] < SUPPORT_TOP_Z:
+            return self._pick_place_result(
+                spec=spec,
+                success=False,
+                object_start=settled_start,
+                grasp_pos=np.full(3, np.nan),
+                place_pos=np.full(3, np.nan),
+                grasp_quat=spec.orientation.quat_wxyz,
+                final_position_error=float("inf"),
+                final_rotation_error=float("inf"),
+                placement_xy_error=float("inf"),
+                placement_z_error=float("inf"),
+                placement_achieved=False,
+                gripper_released=False,
+                failure_category="task_or_scene_setup_failure",
+                max_lift=0.0,
+                note="object did not settle on the support surface",
+            )
+
+        commands, grasp_pos, grasp_quat, place_goal = self.scripted_pick_place_commands(
+            spec,
+            settled_start,
+        )
+        clipped_translation = 0
+        clipped_rotation = 0
+        clipped_joints = 0
+        final_position_error = float("inf")
+        final_rotation_error = float("inf")
+        reached_grasp = False
+        contact_during_close = False
+        retained = False
+        max_lift = 0.0
+
+        step_index = 0
+        grasp_boundary_index = None
+        for command in commands:
+            if (
+                grasp_boundary_index is None
+                and command.phase == PICK_PLACE_TRANSPORT_PHASE
+            ):
+                grasp_boundary_index = step_index
+            phase_stats = self._execute_scripted_command(
+                command,
+                step_index_start=step_index,
+                grasp_boundary_index=grasp_boundary_index,
+            )
+            step_index += int(phase_stats["steps_executed"])
+            clipped_translation += int(phase_stats["clipped_translation"])
+            clipped_rotation += int(phase_stats["clipped_rotation"])
+            clipped_joints += int(phase_stats["clipped_joints"])
+            max_lift = max(max_lift, float(phase_stats["max_lift"]))
+            if command.phase == "grasp_align":
+                final_position_error = float(phase_stats["position_error"])
+                final_rotation_error = float(phase_stats["rotation_error"])
+                reached_grasp = (
+                    final_position_error <= 0.012 and final_rotation_error <= 0.22
+                )
+            if command.phase == "close_gripper":
+                contact_during_close = contact_during_close or bool(
+                    phase_stats["contact_achieved"]
+                )
+            if command.phase == "hold":
+                retained = bool(phase_stats["retained_during_hold"])
+
+        placement_achieved, placement_metrics = self.evaluate_placement(
+            place_goal,
+            goal_xyz=place_goal,
+        )
+        grasp_metrics = self._grasp_segment_metrics or self.finalize_grasp_segment()
+        collision_free_approach = bool(grasp_metrics["collision_free_approach"])
+        event_order_valid = bool(grasp_metrics["event_order_valid"])
+        physical_sanity_pass = bool(grasp_metrics["physical_sanity_pass"])
+        object_lifted = bool(grasp_metrics["object_lifted"])
+        contact_achieved = bool(grasp_metrics["contact_achieved"])
+        success = bool(
+            collision_free_approach
+            and event_order_valid
+            and physical_sanity_pass
+            and reached_grasp
+            and contact_achieved
+            and object_lifted
+            and retained
+            and placement_achieved
+        )
+        failure_category, note = self._classify_pick_place_failure(
+            collision_free_approach=collision_free_approach,
+            event_order_valid=event_order_valid,
+            physical_sanity_pass=physical_sanity_pass,
+            reached_grasp=reached_grasp,
+            contact=contact_achieved,
+            lifted=object_lifted,
+            retained=retained,
+            placement_achieved=placement_achieved,
+            gripper_released=bool(placement_metrics["gripper_released"]),
+            final_position_error=final_position_error,
+            final_rotation_error=final_rotation_error,
+            clipped_joint_steps=clipped_joints,
+        )
+        return self._pick_place_result(
+            spec=spec,
+            success=success,
+            object_start=settled_start,
+            grasp_pos=grasp_pos,
+            place_pos=place_goal,
+            grasp_quat=grasp_quat,
+            final_position_error=final_position_error,
+            final_rotation_error=final_rotation_error,
+            placement_xy_error=float(placement_metrics["placement_xy_error"]),
+            placement_z_error=float(placement_metrics["placement_z_error"]),
+            placement_achieved=placement_achieved,
+            gripper_released=bool(placement_metrics["gripper_released"]),
+            failure_category=failure_category,
+            max_lift=max_lift,
+            clipped_translation=clipped_translation,
+            clipped_rotation=clipped_rotation,
+            clipped_joints=clipped_joints,
+            note=note,
+            grasp_metrics=grasp_metrics,
+            contact=contact_achieved,
+            lifted=object_lifted,
+            retained=retained,
+        )
+
     def run_trial(self, spec: PickupTrialSpec) -> PickupTrialResult:
         object_start = np.asarray(spec.object_pose.xyz, dtype=float)
         self.reset(object_start)
@@ -736,6 +1114,87 @@ class PickupTaskEvaluator:
             note=note,
         )
 
+    def _execute_scripted_command(
+        self,
+        command: ScriptedControllerCommand,
+        *,
+        step_index_start: int = 0,
+        grasp_boundary_index: int | None = None,
+    ) -> dict[str, float | int | bool]:
+        clipped_translation = 0
+        clipped_rotation = 0
+        clipped_joints = 0
+        max_lift = 0.0
+        position_error = float("inf")
+        rotation_error = float("inf")
+        contact_achieved = False
+        hold_contact_steps = 0
+        hold_lifted_steps = 0
+        hold_start_contact = self._episode_close_contact_steps
+        hold_start_lifted = self._episode_lifted_steps
+        settled_start = self._episode_object_start.copy()
+        steps_executed = 0
+
+        for _ in range(command.max_steps):
+            maybe_finalize_grasp_at_sample(
+                self,
+                step_index_start + steps_executed,
+                grasp_boundary_index,
+            )
+            status = self.controller.move_toward(
+                self.data,
+                command.target_pos,
+                command.target_quat_wxyz,
+            )
+            self.controller.set_gripper(self.data, command.gripper_open)
+            self._advance_episode_physics(4, command.gripper_open)
+            max_lift = max(max_lift, self._episode_max_lift)
+            clipped_translation += int(status.clipped_translation)
+            clipped_rotation += int(status.clipped_rotation)
+            clipped_joints += int(status.clipped_joints)
+            contact_achieved = contact_achieved or self.gripper_object_contact
+            if command.phase == "hold":
+                hold_contact_steps = self._episode_close_contact_steps - hold_start_contact
+                hold_lifted_steps = self._episode_lifted_steps - hold_start_lifted
+            position_error = float(np.linalg.norm(command.target_pos - self.controller.ee_pose(self.data)[0]))
+            rotation_error = float(
+                np.linalg.norm(
+                    _orientation_error_rotvec(
+                        self.controller.ee_pose(self.data)[1],
+                        command.target_quat_wxyz,
+                    )
+                )
+            )
+            steps_executed += 1
+            if (
+                command.stop_on_pose_tolerance
+                and status.position_error <= self.controller.limits.position_tolerance
+                and status.rotation_error <= self.controller.limits.rotation_tolerance
+            ):
+                break
+
+        retained_during_hold = False
+        if command.phase == "hold":
+            lift = float(self.object_position[2] - settled_start[2])
+            retained_during_hold = bool(
+                lift >= RETENTION_CLEARANCE
+                and hold_lifted_steps >= 180
+                and hold_contact_steps >= 60
+                and self.gripper_object_distance() <= 0.045
+            )
+
+        return {
+            "position_error": position_error,
+            "rotation_error": rotation_error,
+            "clipped_translation": clipped_translation,
+            "clipped_rotation": clipped_rotation,
+            "clipped_joints": clipped_joints,
+            "max_lift": max_lift,
+            "contact_achieved": contact_achieved,
+            "retained_during_hold": retained_during_hold,
+            "steps_executed": steps_executed,
+        }
+
     def _move_to_pose(
         self,
         target_pos: np.ndarray,
@@ -775,14 +1234,15 @@ class PickupTaskEvaluator:
             self._episode_closure_started = True
             self._episode_first_close_time = float(self.data.time)
             self._episode_close_start_distance = self.gripper_object_distance()
-        if (
-            self._episode_closure_started
-            and self._episode_last_gripper_command <= PRECLOSE_OPEN_THRESHOLD
-            and gripper_open > PRECLOSE_OPEN_THRESHOLD
-        ):
-            self._episode_reopen_events += 1
-        if self._episode_closure_started and gripper_open > PRECLOSE_OPEN_THRESHOLD:
-            self._episode_reopen_command_steps += 1
+        if not self._grasp_segment_frozen:
+            if (
+                self._episode_closure_started
+                and self._episode_last_gripper_command <= PRECLOSE_OPEN_THRESHOLD
+                and gripper_open > PRECLOSE_OPEN_THRESHOLD
+            ):
+                self._episode_reopen_events += 1
+            if self._episode_closure_started and gripper_open > PRECLOSE_OPEN_THRESHOLD:
+                self._episode_reopen_command_steps += 1
         self._episode_last_gripper_command = float(gripper_open)
 
         for _ in range(substeps):
@@ -1010,6 +1470,142 @@ class PickupTaskEvaluator:
             return "gripper_or_contact_model_failure", "object lifted but was not retained through hold"
         return "none", "pickup met reach, contact, lift, and hold criteria"
 
+    def _classify_pick_place_failure(
+        self,
+        collision_free_approach: bool,
+        event_order_valid: bool,
+        physical_sanity_pass: bool,
+        reached_grasp: bool,
+        contact: bool,
+        lifted: bool,
+        retained: bool,
+        placement_achieved: bool,
+        gripper_released: bool,
+        final_position_error: float,
+        final_rotation_error: float,
+        clipped_joint_steps: int,
+    ) -> tuple[str, str]:
+        pickup_category, pickup_note = self._classify_failure(
+            collision_free_approach=collision_free_approach,
+            event_order_valid=event_order_valid,
+            physical_sanity_pass=physical_sanity_pass,
+            reached_grasp=reached_grasp,
+            contact=contact,
+            lifted=lifted,
+            retained=retained,
+            final_position_error=final_position_error,
+            final_rotation_error=final_rotation_error,
+            clipped_joint_steps=clipped_joint_steps,
+        )
+        if pickup_category != "none":
+            return pickup_category, pickup_note
+        if not placement_achieved:
+            if not gripper_released:
+                return "placement_failure", "object reached target region but gripper did not release"
+            if not self.object_support_contact:
+                return "placement_failure", "gripper released but object is not resting on support"
+            return (
+                "placement_failure",
+                "object released on support but outside placement XY/Z tolerance",
+            )
+        return "none", "pick-and-place met grasp gates and placement criteria"
+
+    def _pick_place_result(
+        self,
+        spec: PickPlaceTrialSpec,
+        success: bool,
+        object_start: np.ndarray,
+        grasp_pos: np.ndarray,
+        place_pos: np.ndarray,
+        grasp_quat: np.ndarray,
+        final_position_error: float,
+        final_rotation_error: float,
+        placement_xy_error: float,
+        placement_z_error: float,
+        placement_achieved: bool,
+        gripper_released: bool,
+        failure_category: str,
+        max_lift: float,
+        note: str,
+        contact: bool = False,
+        lifted: bool = False,
+        retained: bool = False,
+        clipped_translation: int = 0,
+        clipped_rotation: int = 0,
+        clipped_joints: int = 0,
+        grasp_metrics: dict | None = None,
+    ) -> PickPlaceTrialResult:
+        if grasp_metrics is None:
+            grasp_metrics = {
+                "collision_free_approach": False,
+                "event_order_valid": False,
+                "physical_sanity_pass": False,
+                "early_close": False,
+                "reopen_events": 0,
+                "preclose_contact_steps": 0,
+                "preclose_max_object_displacement": 0.0,
+                "max_gripper_contact_force": 0.0,
+                "gripper_contact_impulse_before_lift": 0.0,
+                "max_object_xy_displacement_while_supported": 0.0,
+                "max_object_rotation_while_supported": 0.0,
+                "contact_achieved": False,
+                "object_lifted": False,
+                "retained_during_hold": False,
+                "max_object_lift": 0.0,
+            }
+        return PickPlaceTrialResult(
+            trial_id=spec.trial_id,
+            orientation=spec.orientation.label,
+            object_pose=spec.object_pose.label,
+            approach=spec.approach.label,
+            placement_target=spec.placement_target.label,
+            repeat=spec.repeat,
+            success=bool(success),
+            object_start_pose=_round_list(object_start),
+            commanded_grasp_pose=_round_list(grasp_pos),
+            commanded_placement_pose=_round_list(place_pos),
+            gripper_orientation_wxyz=_round_list(grasp_quat),
+            final_ee_position_error=float(final_position_error),
+            final_ee_rotation_error=float(final_rotation_error),
+            contact_achieved=bool(contact or grasp_metrics["contact_achieved"]),
+            object_lifted=bool(lifted or grasp_metrics["object_lifted"]),
+            retained_during_hold=bool(retained or grasp_metrics["retained_during_hold"]),
+            placement_achieved=bool(placement_achieved),
+            placement_xy_error=float(placement_xy_error),
+            placement_z_error=float(placement_z_error),
+            gripper_released=bool(gripper_released),
+            failure_category=failure_category,
+            final_object_pose=_round_list(self.object_position),
+            final_object_lift=float(self.object_position[2] - object_start[2]),
+            max_object_lift=float(max_lift),
+            gripper_object_distance=self.gripper_object_distance()
+            if np.isfinite(grasp_pos).all()
+            else float("inf"),
+            collision_free_approach=bool(grasp_metrics["collision_free_approach"]),
+            preclose_contact_steps=int(grasp_metrics["preclose_contact_steps"]),
+            preclose_max_object_displacement=float(
+                grasp_metrics["preclose_max_object_displacement"]
+            ),
+            event_order_valid=bool(grasp_metrics["event_order_valid"]),
+            early_close=bool(grasp_metrics["early_close"]),
+            reopen_events=int(grasp_metrics["reopen_events"]),
+            max_gripper_contact_force=float(grasp_metrics["max_gripper_contact_force"]),
+            gripper_contact_impulse_before_lift=float(
+                grasp_metrics["gripper_contact_impulse_before_lift"]
+            ),
+            max_object_xy_displacement_while_supported=float(
+                grasp_metrics["max_object_xy_displacement_while_supported"]
+            ),
+            max_object_rotation_while_supported=float(
+                grasp_metrics["max_object_rotation_while_supported"]
+            ),
+            physical_sanity_pass=bool(grasp_metrics["physical_sanity_pass"]),
+            clipped_translation_steps=clipped_translation,
+            clipped_rotation_steps=clipped_rotation,
+            clipped_joint_steps=clipped_joints,
+            note=note,
+        )
+
     def _result(
         self,
         spec: PickupTrialSpec,
@@ -1078,6 +1674,80 @@ class PickupTaskEvaluator:
             clipped_joint_steps=clipped_joints,
             note=note,
         )
+
+
+def default_pick_place_trial_specs() -> list[PickPlaceTrialSpec]:
+    placement_targets = [
+        PlacementTarget(
+            "place_left",
+            PLACEMENT_MARKER_BODIES["place_left"][0],
+            PLACEMENT_MARKER_BODIES["place_left"][1],
+        ),
+        PlacementTarget(
+            "place_right",
+            PLACEMENT_MARKER_BODIES["place_right"][0],
+            PLACEMENT_MARKER_BODIES["place_right"][1],
+        ),
+    ]
+    object_poses = [
+        ObjectStartPose("center", np.array([0.000, -0.235, OBJECT_START_Z])),
+        ObjectStartPose("left", np.array([-0.018, -0.232, OBJECT_START_Z])),
+        ObjectStartPose("right", np.array([0.018, -0.238, OBJECT_START_Z])),
+    ]
+    approaches = [
+        ApproachStrategy("vertical_pregrasp", "world_z"),
+        ApproachStrategy("high_staged_vertical_pregrasp", "high_world_z"),
+    ]
+    matrix = [
+        ("place_left", "center", "vertical_pregrasp"),
+        ("place_left", "left", "vertical_pregrasp"),
+        ("place_right", "center", "vertical_pregrasp"),
+        ("place_right", "right", "vertical_pregrasp"),
+        ("place_left", "right", "high_staged_vertical_pregrasp"),
+        ("place_right", "left", "high_staged_vertical_pregrasp"),
+    ]
+    placement_by_label = {target.label: target for target in placement_targets}
+    pose_by_label = {pose.label: pose for pose in object_poses}
+    approach_by_label = {approach.label: approach for approach in approaches}
+    specs: list[PickPlaceTrialSpec] = []
+    for trial_id, (placement_label, pose_label, approach_label) in enumerate(matrix, start=1):
+        specs.append(
+            PickPlaceTrialSpec(
+                trial_id=trial_id,
+                orientation=GraspOrientation("yaw_0", 0.0),
+                object_pose=pose_by_label[pose_label],
+                approach=approach_by_label[approach_label],
+                placement_target=placement_by_label[placement_label],
+            )
+        )
+    return specs
+
+
+def summarize_pick_place_results(results: Iterable[PickPlaceTrialResult]) -> dict:
+    results = list(results)
+    return {
+        "total": len(results),
+        "successes": sum(result.success for result in results),
+        "success_rate": _rate(result.success for result in results),
+        "by_placement_target": _bucket_rates(results, "placement_target"),
+        "by_object_pose": _bucket_rates(results, "object_pose"),
+        "by_approach": _bucket_rates(results, "approach"),
+        "failure_categories": _failure_counts(results),
+        "collision_free_approach_rate": _rate(
+            result.collision_free_approach for result in results
+        ),
+        "event_order_valid_rate": _rate(result.event_order_valid for result in results),
+        "physical_sanity_pass_rate": _rate(
+            result.physical_sanity_pass for result in results
+        ),
+        "placement_achieved_rate": _rate(result.placement_achieved for result in results),
+        "mean_placement_xy_error": float(
+            np.mean([result.placement_xy_error for result in results])
+        )
+        if results
+        else 0.0,
+        "reopen_events": sum(result.reopen_events for result in results),
+    }
 
 
 def default_trial_specs(repeats: int = 2) -> list[PickupTrialSpec]:
@@ -1152,7 +1822,10 @@ def summarize_results(results: Iterable[PickupTrialResult]) -> dict:
     }
 
 
-def _bucket_rates(results: list[PickupTrialResult], attr: str) -> dict[str, dict[str, float | int]]:
+def _bucket_rates(
+    results: list[PickupTrialResult] | list[PickPlaceTrialResult],
+    attr: str,
+) -> dict[str, dict[str, float | int]]:
     buckets = sorted({getattr(result, attr) for result in results})
     return {
         bucket: {
@@ -1168,7 +1841,9 @@ def _bucket_rates(results: list[PickupTrialResult], attr: str) -> dict[str, dict
     }
 
 
-def _failure_counts(results: list[PickupTrialResult]) -> dict[str, int]:
+def _failure_counts(
+    results: list[PickupTrialResult] | list[PickPlaceTrialResult],
+) -> dict[str, int]:
     counts: dict[str, int] = {}
     for result in results:
         counts[result.failure_category] = counts.get(result.failure_category, 0) + 1

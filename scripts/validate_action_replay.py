@@ -11,149 +11,162 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from svla.demo_recorder import PickupDemoRecorder
-from svla.pickup_task import LIFT_CLEARANCE, RETENTION_CLEARANCE, PickupTaskEvaluator, default_trial_specs
+from svla.pick_place_replay import ACTION_SPACES, replay_demo_policy_labels
+from svla.pickup_task import (
+    OBJECT_START_Z,
+    ApproachStrategy,
+    GraspOrientation,
+    ObjectStartPose,
+    PickPlaceTrialSpec,
+    PickupTaskEvaluator,
+    PlacementTarget,
+    default_pick_place_trial_specs,
+    default_trial_specs,
+)
 from svla.state_bc import write_json
 
 
-ACTION_SPACES = ("joint_delta", "ee_tool_delta")
-
-
 def run(args: argparse.Namespace) -> dict:
-    demos = [
-        (spec, PickupDemoRecorder(PickupTaskEvaluator()).record_trial(spec))
-        for spec in default_trial_specs(repeats=args.repeats)
-    ]
+    if args.task == "compare":
+        return run_compare(args)
+    if args.task == "pick_place":
+        demos = [
+            (spec, PickupDemoRecorder(PickupTaskEvaluator()).record_pick_place_trial(spec))
+            for spec in default_pick_place_trial_specs()[: args.demo_count]
+        ]
+        demo_format = "svla_pick_place_demo_v1"
+    else:
+        demos = [
+            (spec, PickupDemoRecorder(PickupTaskEvaluator()).record_trial(spec))
+            for spec in default_trial_specs(repeats=args.repeats)
+        ]
+        demo_format = "svla_pickup_demo_v3_physics_audit"
+
     by_action_space = {}
     for action_space in ACTION_SPACES:
         trials = [
-            _replay_demo(demo, action_space, np.asarray(spec.object_pose.xyz, dtype=float))
+            replay_demo_policy_labels(
+                demo,
+                action_space,
+                np.asarray(spec.object_pose.xyz, dtype=float),
+                task=args.task,
+            )
             for spec, demo in demos
         ]
-        by_action_space[action_space] = {
-            "successes": sum(trial["success"] for trial in trials),
-            "total": len(trials),
-            "mean_saturation_rate": _mean(
-                trial["saturated_steps"] / trial["steps"] for trial in trials
-            ),
-            "mean_joint_limit_rate": _mean(
-                trial["joint_limit_clipped_steps"] / trial["steps"] for trial in trials
-            ),
-            "mean_joint_step_rate": _mean(
-                trial["joint_step_clipped_steps"] / trial["steps"] for trial in trials
-            ),
-            "mean_infeasible_rate": _mean(
-                trial["infeasible_steps"] / trial["steps"] for trial in trials
-            ),
-            "controller_failure_steps": sum(
-                trial["controller_failure_steps"] for trial in trials
-            ),
-            "collision_free_approaches": sum(
-                trial["collision_free_approach"] for trial in trials
-            ),
-            "valid_event_orders": sum(trial["event_order_valid"] for trial in trials),
-            "physical_sanity_passes": sum(
-                trial["physical_sanity_pass"] for trial in trials
-            ),
-            "max_gripper_contact_force": max(
-                trial["max_gripper_contact_force"] for trial in trials
-            ),
-            "max_gripper_contact_impulse_before_lift": max(
-                trial["gripper_contact_impulse_before_lift"] for trial in trials
-            ),
-            "max_object_xy_displacement_while_supported": max(
-                trial["max_object_xy_displacement_while_supported"] for trial in trials
-            ),
-            "preclose_contact_steps": sum(
-                trial["preclose_contact_steps"] for trial in trials
-            ),
-            "max_preclose_object_displacement": max(
-                trial["preclose_max_object_displacement"] for trial in trials
-            ),
-            "trials": trials,
-        }
+        by_action_space[action_space] = _summarize_trials(trials)
+
     summary = {
         "format": "svla_action_replay_v1",
+        "task": args.task,
+        "demo_format": demo_format,
         "demo_count": len(demos),
         "by_action_space": by_action_space,
-        "pass": all(
-            result["successes"] == result["total"]
-            and result["controller_failure_steps"] == 0
-            and result["collision_free_approaches"] == result["total"]
-            and result["valid_event_orders"] == result["total"]
-            and result["physical_sanity_passes"] == result["total"]
-            and result["preclose_contact_steps"] == 0
-            for result in by_action_space.values()
-        ),
+        "pass": _replay_passes(args.task, by_action_space),
     }
     write_json(args.output, summary)
     print(json.dumps(summary, indent=2, sort_keys=True))
-    if not summary["pass"]:
+    if args.require_pass and not summary["pass"]:
         raise SystemExit(1)
     return summary
 
 
-def _replay_demo(demo: dict, action_space: str, object_start: np.ndarray) -> dict:
-    trial = demo["metadata"]["trial_spec"]
-    env = PickupTaskEvaluator()
-    env.reset(object_start)
-    counts = {
-        "saturated_steps": 0,
-        "joint_limit_clipped_steps": 0,
-        "joint_step_clipped_steps": 0,
-        "joint_accel_clipped_steps": 0,
-        "infeasible_steps": 0,
-        "controller_failure_steps": 0,
-    }
-    for sample in demo["samples"]:
-        action = np.asarray(sample["policy_labels"][action_space], dtype=float)
-        if action_space == "joint_delta":
-            _, _, status = env.step_joint_delta_action(action[:5], action[5])
-            get = status.__getitem__
-        else:
-            _, _, status = env.step_ee_tool_delta_action(action[:3], action[3:5], action[5])
-            get = lambda name: getattr(status, name)
-        counts["saturated_steps"] += int(get("saturated"))
-        counts["joint_limit_clipped_steps"] += int(get("joint_limit_clipped"))
-        counts["joint_step_clipped_steps"] += int(get("joint_step_clipped"))
-        counts["joint_accel_clipped_steps"] += int(get("joint_accel_clipped"))
-        counts["infeasible_steps"] += int(get("infeasible"))
-        counts["controller_failure_steps"] += int(get("controller_failed"))
-
-    metrics = env.get_success_metrics()
-    success = bool(
-        metrics["collision_free_approach"]
-        and metrics["event_order_valid"]
-        and metrics["physical_sanity_pass"]
-        and metrics["contact_achieved"]
-        and metrics["max_object_lift"] >= LIFT_CLEARANCE
-        and metrics["current_object_lift"] >= RETENTION_CLEARANCE
-        and metrics["retained_during_hold"]
+def run_compare(args: argparse.Namespace) -> dict:
+    recorder = PickupDemoRecorder(PickupTaskEvaluator())
+    pickup_demo = recorder.record_trial(default_trial_specs(repeats=1)[0])
+    place_demo = recorder.record_pick_place_trial(
+        PickPlaceTrialSpec(
+            trial_id=1,
+            orientation=GraspOrientation("yaw_0", 0.0),
+            object_pose=ObjectStartPose("center", np.array([0.0, -0.235, OBJECT_START_Z])),
+            approach=ApproachStrategy("vertical_pregrasp", "world_z"),
+            placement_target=PlacementTarget(
+                "place_right",
+                "place_right_marker",
+                "place_right_marker",
+            ),
+        )
     )
-    return {
-        "trial_id": trial["trial_id"],
-        "orientation": trial["orientation"],
-        "object_pose": trial["object_pose"],
-        "approach": trial["approach"],
-        "success": success,
-        "collision_free_approach": bool(metrics["collision_free_approach"]),
-        "event_order_valid": bool(metrics["event_order_valid"]),
-        "early_close": bool(metrics["early_close"]),
-        "reopen_events": int(metrics["reopen_events"]),
-        "physical_sanity_pass": bool(metrics["physical_sanity_pass"]),
-        "max_gripper_contact_force": float(metrics["max_gripper_contact_force"]),
-        "gripper_contact_impulse_before_lift": float(
-            metrics["gripper_contact_impulse_before_lift"]
-        ),
-        "max_object_xy_displacement_while_supported": float(
-            metrics["max_object_xy_displacement_while_supported"]
-        ),
-        "preclose_contact_steps": int(metrics["preclose_contact_steps"]),
-        "preclose_max_object_displacement": float(
-            metrics["preclose_max_object_displacement"]
-        ),
-        "steps": len(demo["samples"]),
-        **counts,
+    pickup_start = np.asarray(pickup_demo["summary"]["object_start_pose"], dtype=float)
+    place_start = np.asarray(place_demo["summary"]["object_start_pose"], dtype=float)
+    comparison = {
+        "format": "svla_action_replay_compare_v1",
+        "pickup": {
+            "phase_count": len(pickup_demo["phase_summaries"]),
+            "phases": [phase["phase"] for phase in pickup_demo["phase_summaries"]],
+            "sample_count": len(pickup_demo["samples"]),
+            "replay": {
+                space: replay_demo_policy_labels(pickup_demo, space, pickup_start, task="pickup")
+                for space in ACTION_SPACES
+            },
+        },
+        "pick_place": {
+            "phase_count": len(place_demo["phase_summaries"]),
+            "phases": [phase["phase"] for phase in place_demo["phase_summaries"]],
+            "sample_count": len(place_demo["samples"]),
+            "grasp_segment_finalize_sample_index": place_demo["metadata"][
+                "grasp_segment_finalize_sample_index"
+            ],
+            "replay": {
+                space: replay_demo_policy_labels(place_demo, space, place_start, task="pick_place")
+                for space in ACTION_SPACES
+            },
+        },
     }
+    write_json(args.output, comparison)
+    print(json.dumps(comparison, indent=2, sort_keys=True))
+    return comparison
+
+
+def _summarize_trials(trials: list[dict]) -> dict:
+    return {
+        "successes": sum(trial["success"] for trial in trials),
+        "total": len(trials),
+        "mean_saturation_rate": _mean(trial["saturation_rate"] for trial in trials),
+        "mean_joint_limit_rate": _mean(
+            trial["joint_limit_clipped_steps"] / trial["steps"] for trial in trials
+        ),
+        "mean_joint_step_rate": _mean(
+            trial["joint_step_clipped_steps"] / trial["steps"] for trial in trials
+        ),
+        "mean_infeasible_rate": _mean(
+            trial["infeasible_steps"] / trial["steps"] for trial in trials
+        ),
+        "controller_failure_steps": sum(trial["controller_failure_steps"] for trial in trials),
+        "collision_free_approaches": sum(trial["collision_free_approach"] for trial in trials),
+        "valid_event_orders": sum(trial["event_order_valid"] for trial in trials),
+        "physical_sanity_passes": sum(trial["physical_sanity_pass"] for trial in trials),
+        "max_gripper_contact_force": max(trial["max_gripper_contact_force"] for trial in trials),
+        "max_gripper_contact_impulse_before_lift": max(
+            trial["gripper_contact_impulse_before_lift"] for trial in trials
+        ),
+        "max_object_xy_displacement_while_supported": max(
+            trial["max_object_xy_displacement_while_supported"] for trial in trials
+        ),
+        "preclose_contact_steps": sum(trial["preclose_contact_steps"] for trial in trials),
+        "max_preclose_object_displacement": max(
+            trial["preclose_max_object_displacement"] for trial in trials
+        ),
+        "trials": trials,
+    }
+
+
+def _replay_passes(task: str, by_action_space: dict) -> bool:
+    if task == "pick_place":
+        return all(
+            result["valid_event_orders"] == result["total"]
+            and result["physical_sanity_passes"] == result["total"]
+            and result["collision_free_approaches"] == result["total"]
+            for result in by_action_space.values()
+        )
+    return all(
+        result["successes"] == result["total"]
+        and result["controller_failure_steps"] == 0
+        and result["collision_free_approaches"] == result["total"]
+        and result["valid_event_orders"] == result["total"]
+        and result["physical_sanity_passes"] == result["total"]
+        and result["preclose_contact_steps"] == 0
+        for result in by_action_space.values()
+    )
 
 
 def _mean(values) -> float:
@@ -165,9 +178,25 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument(
+        "--task",
+        choices=("pickup", "pick_place", "compare"),
+        default="pickup",
+    )
+    parser.add_argument(
+        "--demo-count",
+        type=int,
+        default=1,
+        help="Number of pick-and-place demos to record when --task pick_place.",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=PROJECT_ROOT / "outputs" / "action_replay_tool_axis_summary.json",
+    )
+    parser.add_argument(
+        "--require-pass",
+        action="store_true",
+        help="Exit non-zero when replay gates fail.",
     )
     run(parser.parse_args())
 

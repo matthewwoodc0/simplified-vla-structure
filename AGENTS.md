@@ -22,6 +22,30 @@ Keep the order of operations strict:
 Do not jump straight to VLA training. That would hide whether the controller/action-space
 idea is actually working.
 
+## Research notes (`researchnotes.md`)
+
+Use **`researchnotes.md`** for hypotheses, experiment design, and in-flight results.
+This file (`Agents.md`) stays the stable operator summary; update it only when a tested
+hypothesis changes a verdict, blocker, or recommended next step.
+
+**Workflow when testing a hypothesis:**
+
+1. Add or pick a row in `researchnotes.md` (ID, status `untested` → `testing`).
+2. Run the minimal closed-loop test (rollout + strict gates, not train loss alone).
+3. Record outcome in the **Results log** with an `outputs/...` or scratch log path.
+4. Set hypothesis status to `confirmed` / `rejected` / `partial`.
+5. If the phase verdict moves (e.g. EE BC unblocked, Phase 6b policy training GO), add one
+   dated bullet under **Research verdict updates** below.
+
+### Research verdict updates
+
+- **2026-07-01:** EE BC event misordering documented as primary ML blocker (15/72 vs joint
+  47/72); hypotheses logged in `researchnotes.md`.
+- **2026-07-01:** **H-EE-010 rejected** — inference-only no-cursor ablation made EE **worse**
+  (0/72 success, 24 early_close vs 14/72 baseline). Cursor/progress is required for the
+  *current* MLP weights; fix needs retrain or env-derived phase, not rollout ablation alone.
+  Evidence: `outputs/h_ee_010_no_cursor_ablation.json`. `state_bc.py` changes reverted.
+
 ## YOU ARE HERE
 
 **Current phase:** End of Phase 5 / pre-Phase-6 physics-audit gate (gate **closed** as of
@@ -44,13 +68,17 @@ Core modules:
 - `assets/so101_arm.xml`, `assets/pickup_scene.xml`: SO-101 arm + table/cube scene.
 - `src/svla/controller.py`: damped-least-squares Cartesian IK controller.
 - `src/svla/action_spaces.py`: joint-delta and EE-tool-delta adapters.
-- `src/svla/pickup_task.py`: pickup task evaluator with physics-audit telemetry and gates.
+- `src/svla/pickup_task.py`: pickup + pick-place evaluator with physics-audit telemetry and gates.
+- `src/svla/pick_place_replay.py`: action replay with grasp-segment boundary from demo metadata.
 - `src/svla/state_bc.py`, `src/svla/demo_recorder.py`: demonstration recording and BC.
 - `scripts/validate_task_robustness.py`: readiness vs broad domain stress tests.
+- `scripts/run_pick_place_trials.py`, `scripts/record_pick_place_demo.py`: pick-place matrix and demo export.
 - `scripts/render_pickup_showcase.py`, `scripts/render_bc_rollout.py`: MP4 visual review.
 
 Pickup success requires all of: collision-free approach, valid event order, physical sanity
 (force/impulse/disturbance limits), contact, lift, and retention — not geometry alone.
+Pick-place adds transport → lower → open → retreat and placement XY/Z tolerance on top of
+the same grasp-segment gates.
 
 ### Physics-audit gate constants (MuJoCo sanity limits, not hardware-calibrated)
 
@@ -79,6 +107,49 @@ grasp height, asymmetric width compensation (shrink gain 3.0, growth gain 1.0).
 8. Learned EE policies fail stricter gates badly (21% success); joint is better but not clean (65%).
 9. Separate "Phase-6 readiness domain" (±5% geometry, friction 1.6–2.0) from "broad stress
    report" (±15%, friction 0.8–2.4). Do not relabel broad failures as passes.
+10. Controller-level scripting composes cleanly (pickup 36/36, pick-place 6/6); BC gaps are
+    learning/timing/saturation, not IK or scripting difficulty. See success-rate ladder below.
+
+## End of Phase 5: Success-Rate Ladder (pickup, strict physics gates)
+
+Separate **scripting**, **label replay**, and **learned BC**. All three use the same gates;
+they answer different questions.
+
+| Layer | What it measures | EE (`ee_tool_delta`) | Joint (`joint_delta`) |
+|-------|------------------|----------------------|------------------------|
+| 1. Scripted controller | Expert runs `scripted_*_commands` directly | 36/36 (100%) | 36/36 (100%) |
+| 2. Action replay | Replays recorded `policy_labels` from demos | 18/18 (100%) | 18/18 (100%) |
+| 3. Learned MLP BC | State BC on final eval grid (3 seeds × 24 trials) | 15/72 (20.8%) | 47/72 (65.3%) |
+
+Evidence: `outputs/pickup_trials_physics_audit.summary.json`,
+`outputs/action_replay_physics_audit_summary.json`,
+`outputs/state_bc_physics_audit_final/state_bc_summary.json`.
+
+**Interpretation:** the controller and demo labels are not the bottleneck. EE BC fails mostly
+on timing/sequencing, not IK infeasibility. Replay saturation: EE ~9% (pickup), ~7% (pick-place);
+joint ~0%.
+
+### Learned-policy failure breakdown (final eval, pickup)
+
+| Metric | EE BC | Joint BC |
+|--------|-------|----------|
+| `event_order_valid` rate | 41.7% | 72.2% |
+| `early_close` trials | 3 | 0 |
+| Top failure among unsuccessful rollouts | `event_order_failure` (41) | `event_order_failure` (18) |
+
+Pre–physics-audit runs (`state_bc_grasp_tcp_final`, 63/72 each) used looser success criteria;
+do not cite them as current readiness evidence.
+
+### Pick-and-place extension (scripted validation only)
+
+Post-lift phases (transport → lower → open → retreat) extend pickup without new controller
+primitives. Scripted matrix: **6/6** (`outputs/pick_place_trials.summary.json`). One recorded
+demo with full label contract (`svla_pick_place_demo_v1`, boundary index in metadata).
+Action-replay compare: both action spaces succeed on the recorded demo
+(`outputs/action_replay_pick_place_compare.json`). **No pick-place BC yet.**
+
+Left placement needs separate goal vs command markers (`place_left_command_marker` offset) due
+to ~12 mm asymmetric-jaw transport slip; ablation without offset drops to 50% on left trials.
 
 ## Declared Domains
 
@@ -152,6 +223,7 @@ seed 0 → `contact_dynamics_failure` (early_close=false, reopen=0); seed 1 →
 Evidence paths: `outputs/task_robustness_readiness_summary.json`,
 `outputs/task_robustness_broad_summary.json`, `outputs/pickup_trials_physics_audit.summary.json`,
 `outputs/action_replay_physics_audit_summary.json`, `outputs/state_bc_physics_audit_final/state_bc_summary.json`,
+`outputs/pick_place_trials.summary.json`, `outputs/action_replay_pick_place_compare.json`,
 visual clips listed above.
 
 | Decision | Verdict |
@@ -224,9 +296,10 @@ Phase 6 vision infrastructure (after gate):
 
 Phase 5 follow-up (not blocking vision infra):
 
-- Diagnose EE early-close / reopen / event-order failures in learned rollouts.
-- Reduce EE controller saturation or widen training distribution.
+- H-EE-010 inference ablation **rejected** — next: H-EE-001/009 env-derived phase or retrain without progress features.
+- Reduce EE controller saturation or widen training distribution (H-EE-002).
 - Improve joint BC from 65% toward stable readiness-domain pass rate.
+- Run joint-only pick-place BC first; defer EE pick-place until pickup EE event-order improves.
 
 When evaluating policies, keep observations, demonstrations, task initialization, and
 success metrics identical across action spaces. Otherwise the result will not answer the
