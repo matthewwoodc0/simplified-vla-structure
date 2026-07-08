@@ -25,7 +25,7 @@ idea is actually working.
 ## Research notes (`researchnotes.md`)
 
 Use **`researchnotes.md`** for hypotheses, experiment design, and in-flight results.
-This file (`Agents.md`) stays the stable operator summary; update it only when a tested
+This file (`AGENTS.md`) stays the stable operator summary; update it only when a tested
 hypothesis changes a verdict, blocker, or recommended next step.
 
 **Workflow when testing a hypothesis:**
@@ -39,17 +39,29 @@ hypothesis changes a verdict, blocker, or recommended next step.
 
 ### Research verdict updates
 
-- **2026-07-01:** EE BC event misordering documented as primary ML blocker (15/72 vs joint
-  47/72); hypotheses logged in `researchnotes.md`.
+- **2026-07-01:** Historical legacy-grid EE event misordering documented (15/72 vs joint
+  47/72); this was superseded by the registered protocol-v2 result below.
 - **2026-07-01:** **H-EE-010 rejected** — inference-only no-cursor ablation made EE **worse**
   (0/72 success, 24 early_close vs 14/72 baseline). Cursor/progress is required for the
   *current* MLP weights; fix needs retrain or env-derived phase, not rollout ablation alone.
   Evidence: `outputs/h_ee_010_no_cursor_ablation.json`. `state_bc.py` changes reverted.
+- **2026-07-02:** Protocol-v2 validation selected one shared `legacy_progress_phase` contract:
+  joint 53/120 and EE 31/120, versus cursor-free joint 18/120 and EE 32/120. **H-EE-012
+  rejected.** Evidence: `evidence/phase5_v2_model_selection.json`.
+- **2026-07-02:** Registered raw final remains below the proposed policy gates: joint 51/120
+  and EE 28/120. Event order, physical sanity, hard-limit exposure, and seed instability all
+  remain material; this is not a timing-only result.
+- **2026-07-02:** The separately labeled distance-guard diagnostic left EE unchanged at
+  28/120 and moved joint only from 51/120 to 55/120. **H-EE-011 and H-JNT-001 rejected.**
+  Evidence: `evidence/phase5_v2_final_results.json`.
 
 ## YOU ARE HERE
 
-**Current phase:** End of Phase 5 / pre-Phase-6 physics-audit gate (gate **closed** as of
-2026-07-01).
+**Working branch:** `cursor/phase5-repair` — all implementation and experiments happen here.
+Do not edit `main` directly unless explicitly merging or cherry-picking a release.
+
+**Current phase:** End of Phase 5. The scripted simulator/task physics gate is **closed**;
+the learned-policy comparison gate remains **open/blocked**.
 
 Phases 1–5 are built: MuJoCo SO-101 arm, damped-least-squares IK controller, action-space
 adapters, table/cube pickup task, scripted demonstrations, and state-based BC comparison.
@@ -57,9 +69,10 @@ A pre-Phase-6 physics audit fixed contact model bugs, added force/impulse/distur
 telemetry and conservative success gates, stress-tested geometry/friction, and retrained BC
 under corrected physics.
 
-**Phase 6 (vision)** may proceed for vision-only infrastructure (camera observations,
-rendering pipeline, dataset format). Do not start vision-conditioned policy training or VLA
-work until the research comparison action spaces are in an acceptable state (see verdict).
+Vision-only infrastructure is permitted by the scripted gate, but **Prompts 10–11 and all
+Phase-6 vision implementation have not started in this sweep**. Do not start
+vision-conditioned policy training or VLA work until the research comparison action spaces
+are in an acceptable state (see verdict).
 
 ## Current Implementation State
 
@@ -103,53 +116,65 @@ grasp height, asymmetric width compensation (shrink gain 3.0, growth gain 1.0).
 5. Asymmetric pivoting jaw causes ~13–20 mm supported translation during closure; lateral
    compensation is direction-dependent (shrink vs growth gains differ).
 6. Numerical success ≠ visually/physically acceptable behavior.
-7. EE action replay retains ~9% controller saturation; joint replay does not.
-8. Learned EE policies fail stricter gates badly (21% success); joint is better but not clean (65%).
+7. Current action replay retains controller saturation: pickup EE 7.76% vs joint 0%;
+   pick-place EE 8.49% vs joint 0.09%.
+8. Registered raw learned policies remain poor: EE 28/120 (23.3%), joint 51/120 (42.5%).
 9. Separate "Phase-6 readiness domain" (±5% geometry, friction 1.6–2.0) from "broad stress
    report" (±15%, friction 0.8–2.4). Do not relabel broad failures as passes.
-10. Controller-level scripting composes cleanly (pickup 36/36, pick-place 6/6); BC gaps are
-    learning/timing/saturation, not IK or scripting difficulty. See success-rate ladder below.
+10. Controller-level scripting composes cleanly (pickup 36/36, pick-place 6/6), but learned
+    failures span event order, physical sanity, controller-constraint exposure, and seed
+    instability. Zero numerical controller failures does not make saturation irrelevant.
 
-## End of Phase 5: Success-Rate Ladder (pickup, strict physics gates)
+## End of Phase 5: Evidence Ladder (strict physics gates)
 
-Separate **scripting**, **label replay**, and **learned BC**. All three use the same gates;
-they answer different questions.
+Separate **scripting**, **label replay**, **raw learned BC**, and **shielded diagnostics**.
+They answer different questions and must not be collapsed into one readiness claim.
 
 | Layer | What it measures | EE (`ee_tool_delta`) | Joint (`joint_delta`) |
 |-------|------------------|----------------------|------------------------|
-| 1. Scripted controller | Expert runs `scripted_*_commands` directly | 36/36 (100%) | 36/36 (100%) |
-| 2. Action replay | Replays recorded `policy_labels` from demos | 18/18 (100%) | 18/18 (100%) |
-| 3. Learned MLP BC | State BC on final eval grid (3 seeds × 24 trials) | 15/72 (20.8%) | 47/72 (65.3%) |
+| 1. Scripted pickup expert | One shared expert trajectory source, before policy adaptation | 36/36 shared scripted trials | 36/36 shared scripted trials |
+| 2. Pickup policy-label replay | Executability of recorded action-space labels | 18/18 | 18/18 |
+| 3. Raw learned MLP BC | Protocol-v2 final, 5 seeds × 24 trials | 28/120 (23.3%) | 51/120 (42.5%) |
+| 4. Distance-guard diagnostic | Same byte-identical models with a shield; not raw BC | 28/120 (23.3%) | 55/120 (45.8%) |
 
-Evidence: `outputs/pickup_trials_physics_audit.summary.json`,
-`outputs/action_replay_physics_audit_summary.json`,
-`outputs/state_bc_physics_audit_final/state_bc_summary.json`.
+Current learned evidence: `evidence/phase5_v2_model_selection.json`,
+`evidence/phase5_v2_final_results.json`, and the manifests referenced there. Source-matched
+scripted/replay evidence is
+`outputs/phase5_baseline_final/phase5_baseline_v2_aggregate.json`.
 
-**Interpretation:** the controller and demo labels are not the bottleneck. EE BC fails mostly
-on timing/sequencing, not IK infeasibility. Replay saturation: EE ~9% (pickup), ~7% (pick-place);
-joint ~0%.
+**Interpretation:** scripting and replay rule out a basic task-infeasibility or
+non-executable-label failure. They do not prove that learned rollouts are free of controller
+constraint interactions. Both policies fail the proposed learned-policy gates; EE remains
+worse, but timing is not established as the sole cause.
 
 ### Learned-policy failure breakdown (final eval, pickup)
 
-| Metric | EE BC | Joint BC |
+| Metric | Raw EE BC | Raw joint BC |
 |--------|-------|----------|
-| `event_order_valid` rate | 41.7% | 72.2% |
-| `early_close` trials | 3 | 0 |
-| Top failure among unsuccessful rollouts | `event_order_failure` (41) | `event_order_failure` (18) |
+| Success | 28/120 (23.3%) | 51/120 (42.5%) |
+| `event_order_valid` | 38/120 (31.7%) | 65/120 (54.2%) |
+| `physical_sanity_pass` | 68/120 (56.7%) | 80/120 (66.7%) |
+| `early_close` trials | 2 | 11 |
+| `preclose_contact_steps` | 741 | 0 |
+| `reopen_events` | 196 | 128 |
+| `controller_failure_steps` | 0 | 0 |
+| Per-seed successes | 9, 2, 3, 6, 8 | 8, 14, 2, 12, 15 |
 
-Pre–physics-audit runs (`state_bc_grasp_tcp_final`, 63/72 each) used looser success criteria;
-do not cite them as current readiness evidence.
+The 4001+ grids under `state_bc_grasp_tcp_final` and `state_bc_physics_audit_final` are
+historical. The current registered final uses protocol-v2 trial IDs 7001+ and five seeds.
 
 ### Pick-and-place extension (scripted validation only)
 
 Post-lift phases (transport → lower → open → retreat) extend pickup without new controller
-primitives. Scripted matrix: **6/6** (`outputs/pick_place_trials.summary.json`). One recorded
-demo with full label contract (`svla_pick_place_demo_v1`, boundary index in metadata).
-Action-replay compare: both action spaces succeed on the recorded demo
-(`outputs/action_replay_pick_place_compare.json`). **No pick-place BC yet.**
+primitives. The scripted matrix is **6/6**, and six demos carry the
+`svla_pick_place_demo_v1` label contract plus the grasp-boundary metadata. The latest
+source-matched baseline replayed all six demos successfully in both action spaces. **No
+pick-place BC yet.**
 
-Left placement needs separate goal vs command markers (`place_left_command_marker` offset) due
-to ~12 mm asymmetric-jaw transport slip; ablation without offset drops to 50% on left trials.
+Left placement currently uses separate goal and command markers to compensate asymmetric-jaw
+transport slip. A nominal regression test fails when the goal marker is used directly, but
+there is no artifact supporting a general “50%” ablation claim; robustness beyond the
+scripted matrix is unknown.
 
 ## Declared Domains
 
@@ -170,7 +195,8 @@ to ~12 mm asymmetric-jaw transport slip; ablation without offset drops to 50% on
 Run before advancing past the physics-audit gate:
 
 1. **Contact force/impulse gates** — `max_gripper_contact_force`, `gripper_contact_impulse_before_lift`.
-2. **Event order** — contact before close, close before lift, no pre-close contact, no reopen.
+2. **Event order** — close start → finger contact → object unsupported → lift clearance;
+   no pre-close contact, no reopen, and close begins within 15 mm of the object.
 3. **Disturbance limits** — supported-object XY displacement and rotation while grasped.
 4. **Randomized geometry/friction** — readiness domain stress (`validate_task_robustness.py --domain readiness`).
 5. **Visual review** — render representative scripted and BC cases; confirm overlays match gate telemetry.
@@ -190,18 +216,19 @@ synthetic metrics; they do not replace domain stress.
 
 ## Known Limitations
 
-- **EE controller saturation:** scripted EE action replay clips ~9% of steps; joint replay 0%.
-  Learned EE policies inherit this and show high `clipped_translation` counts.
+- **Controller constraints are distinct from numerical failure:** raw final has zero
+  `controller_failure_steps`, but joint-limit exposure is 21.3% of EE rollout steps and
+  19.7% of joint rollout steps. Do not use zero numerical failures to dismiss saturation.
 - **Asymmetric jaw:** pivoting gripper causes direction-dependent lateral shift during closure;
   compensation gains are tuned for the readiness envelope only.
 - **Simulation-only force gates:** limits are MuJoCo sanity checks, not hardware-calibrated.
-- **BC eval grid:** final eval uses trial IDs 4001+ (`final_trial_specs`); render with
-  `--eval-mode final` on `render_bc_rollout.py`.
+- **BC eval grids:** protocol-v2 final uses trial IDs 7001+; 4001+ clips and artifacts are
+  historical legacy-grid examples.
 
-## Visual Review Findings (2026-07-01 physics audit)
+## Historical Visual Review Findings (2026-07-01 physics audit)
 
-Render stdout metrics align with gate telemetry. No visual/numerical mismatch that would
-block Phase 6 vision infrastructure.
+These clips align with their historical physics-audit rows, but they are not visual evidence
+for the current protocol-v2 models. New v2 visual review remains separate future work.
 
 **BC cross-check rule:** eval jsonl rows are keyed by `(trial_id, seed)`. Always match
 `models/*_seed_N.npz` to the jsonl row with the same `seed`. Trial 4005 illustrates why:
@@ -218,26 +245,27 @@ seed 0 → `contact_dynamics_failure` (early_close=false, reopen=0); seed 1 →
 | EE BC success | `outputs/ee_bc_success.mp4` | success=1 | seed 1, trial 4016: success=true, event_order_valid=true, physical_sanity_pass=true | Works on easy yaw_0 pose only |
 | EE BC failure (early-close / reopen) | `outputs/ee_bc_failure.mp4` | success=0 | seed 1, trial 4005: success=false, **early_close=true**, reopen_events=2, event_order_valid=false, failure_category=event_order_failure | Policy closes early, reopens, violates event order; not seed-0 contact_dynamics row |
 
-## Phase-6 Readiness Verdict
+## Readiness Verdict by Layer
 
-Evidence paths: `outputs/task_robustness_readiness_summary.json`,
-`outputs/task_robustness_broad_summary.json`, `outputs/pickup_trials_physics_audit.summary.json`,
-`outputs/action_replay_physics_audit_summary.json`, `outputs/state_bc_physics_audit_final/state_bc_summary.json`,
-`outputs/pick_place_trials.summary.json`, `outputs/action_replay_pick_place_compare.json`,
-visual clips listed above.
+Learned-policy evidence is frozen in `evidence/phase5_v2_model_selection.json` and
+`evidence/phase5_v2_final_results.json`. Use
+`outputs/phase5_baseline_final/phase5_baseline_v2_aggregate.json` for
+scripted/replay/readiness claims.
 
 | Decision | Verdict |
 |----------|---------|
-| Scripted expert in readiness domain | **READY** — 288/288 pass; baseline 36/36; max force 21.2 N, impulse 8.9 N·s (within MuJoCo sanity gates) |
-| Learned policies for research comparison | **Partially viable** — joint-delta 47/72 (65%) under strict gates; not clean enough for final claims. EE 15/72 (21%) **not viable** as primary comparison |
-| EE action space | **Blocked** for primary research claims under strict gates. Secondary use allowed only with documented ~9% scripted replay saturation and 21% BC success caveat |
-| Phase 6 start (vision-only infrastructure) | **GO** — physics gate closed for scripted expert in readiness domain. Vision pipeline (observations, rendering, dataset format) may proceed. Vision-conditioned training and VLA must wait for EE policy fixes or accept joint-only comparison |
-| Out of domain | Broad stress 241/252 — 11 expected OOD failures; do not relabel as readiness passes |
+| Scripted simulator/task readiness | **READY in the declared MuJoCo envelope** — pickup 36/36, pick-place 6/6, readiness 288/288 |
+| Policy-label replay | **READY as an executability check** — pickup 18/18 per action space and pick-place 6/6 per action space; not learned-policy evidence |
+| Raw learned-policy comparison | **NOT READY** — joint 51/120, EE 28/120; both fail the proposed success, event-order, physical-sanity, hard-limit, and per-seed gates |
+| Shielded distance-guard diagnostic | **REJECTED as a fix** — EE unchanged; joint +4/120. Shielded numbers never replace the raw ladder |
+| Hardware realism | **NOT ASSESSED** — force/impulse thresholds are MuJoCo sanity limits, not calibrated hardware limits |
+| Phase 6a vision infrastructure | **PERMITTED BUT NOT STARTED** — Prompts 10–11 were explicitly held |
+| Phase 6b vision-conditioned BC / VLA | **BLOCKED** until the action-space comparison is viable or scope is explicitly changed |
 
 **Controller vs simulator vs ML:** kN forces were a **simulator/contact-model bug** (invalid
-`solimp`, uncapped jaw). Broad-domain shove-and-recover failures are **task/controller envelope**
-limits. EE BC failures (early close, reopen, event-order) are **ML failure modes** distinct
-from corrected physics.
+`solimp`, uncapped jaw). Broad-domain shove-and-recover failures are **task/controller
+envelope** limits. Current BC failures occur in learned closed loop and include event-order,
+physical-sanity, and constraint-exposure symptoms; the evidence does not isolate one cause.
 
 ## Commands
 
@@ -288,7 +316,7 @@ for MP4 export.
 
 ## Next Useful Work
 
-Phase 6 vision infrastructure (after gate):
+Phase 6 vision infrastructure (permitted later; **not started in this sweep**):
 
 - Add fixed camera observations to `pickup_task.py` / demo recorder.
 - Render vision datasets from scripted demos in readiness domain only.
@@ -296,9 +324,11 @@ Phase 6 vision infrastructure (after gate):
 
 Phase 5 follow-up (not blocking vision infra):
 
-- H-EE-010 inference ablation **rejected** — next: H-EE-001/009 env-derived phase or retrain without progress features.
-- Reduce EE controller saturation or widen training distribution (H-EE-002).
-- Improve joint BC from 65% toward stable readiness-domain pass rate.
+- H-EE-010, H-EE-011, H-EE-012, and H-JNT-001 are **rejected**; do not rerun them as the
+  default next step.
+- Test env-derived phase (H-EE-013) or a separate/weighted gripper head (H-EE-003/008) under
+  the same registered protocol. H-EE-002 remains only partial; its causal ablation is untested.
+- Improve joint BC from 42.5% toward a stable per-seed pass rate.
 - Run joint-only pick-place BC first; defer EE pick-place until pickup EE event-order improves.
 
 When evaluating policies, keep observations, demonstrations, task initialization, and

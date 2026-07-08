@@ -8,6 +8,7 @@ import sys
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
+from svla.experiment_manifest import ExperimentManifest
 from svla.pickup_task import (
     PickupTaskEvaluator,
     default_pick_place_trial_specs,
@@ -15,7 +16,8 @@ from svla.pickup_task import (
 )
 
 
-def run(output: Path) -> dict:
+def run(output: Path, *, command: list[str] | None = None) -> dict:
+    manifest = ExperimentManifest.start(repo_root=PROJECT_ROOT, argv=command)
     evaluator = PickupTaskEvaluator()
     specs = default_pick_place_trial_specs()
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -40,6 +42,9 @@ def run(output: Path) -> dict:
     print(json.dumps(summary, indent=2, sort_keys=True))
     print(f"wrote {output}")
     print(f"wrote {summary_path}")
+    manifest.add_outputs([output, summary_path])
+    manifest_path = manifest.write_sidecar(output)
+    print(f"wrote {manifest_path}")
     return summary
 
 
@@ -51,7 +56,7 @@ def main() -> None:
         default=PROJECT_ROOT / "outputs" / "pick_place_trials.jsonl",
     )
     args = parser.parse_args()
-    run(args.output)
+    run(args.output, command=sys.argv)
 
 
 if __name__ == "__main__":

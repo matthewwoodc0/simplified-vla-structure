@@ -9,6 +9,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from svla.demo_recorder import PickupDemoRecorder
+from svla.evaluation_protocol import load_evaluation_protocol
+from svla.experiment_manifest import ExperimentManifest
 import numpy as np
 
 from svla.pickup_task import (
@@ -32,7 +34,11 @@ from svla.state_bc import (
 )
 
 
-def generate_demos(output_dir: Path, specs: list[PickupTrialSpec]) -> list[Path]:
+def generate_demos(
+    output_dir: Path,
+    specs: list[PickupTrialSpec],
+    evaluation_protocol: dict | None = None,
+) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     recorder = PickupDemoRecorder(PickupTaskEvaluator())
     demos = []
@@ -42,6 +48,9 @@ def generate_demos(output_dir: Path, specs: list[PickupTrialSpec]) -> list[Path]
             f"{spec.object_pose.label}_{spec.approach.label}_repeat_{spec.repeat}.json"
         )
         demo = recorder.write_trial(spec, path)
+        if evaluation_protocol is not None:
+            demo["metadata"]["evaluation_protocol"] = evaluation_protocol
+            write_json(path, demo)
         demos.append({"path": str(path), "summary": demo["summary"]})
         print(
             f"demo={path.name} success={int(demo['summary']['success'])} "
@@ -51,6 +60,7 @@ def generate_demos(output_dir: Path, specs: list[PickupTrialSpec]) -> list[Path]
         "format": "svla_state_bc_demo_manifest_v1",
         "demo_count": len(demos),
         "demos": demos,
+        "evaluation_protocol": evaluation_protocol,
     }
     write_json(output_dir / "manifest.json", manifest)
     return [Path(demo["path"]) for demo in demos]
@@ -172,19 +182,58 @@ def evaluation_specs(mode: str, train_grid: str, repeats: int) -> list[PickupTri
     raise ValueError(f"unknown eval mode: {mode}")
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
+    protocol = None
+    protocol_metadata = None
+    if args.evaluation_protocol == "v2":
+        if args.eval_split is None:
+            raise ValueError(
+                "v2 evaluation requires explicit --eval-split train, validation, or final"
+            )
+        protocol = load_evaluation_protocol()
+        protocol_metadata = protocol.metadata(args.eval_split)
+        seed_values = list(args.seeds) if args.seeds is not None else list(protocol.model_seeds)
+        train_specs = protocol.specs("train", repeats=args.demo_repeats)
+        eval_specs = protocol.specs(args.eval_split, repeats=args.eval_repeats)
+    else:
+        if args.eval_split is not None:
+            raise ValueError("--eval-split is only valid with --evaluation-protocol v2")
+        seed_values = list(args.seeds) if args.seeds is not None else [args.seed]
+        train_specs = training_specs(args.train_grid, repeats=args.demo_repeats)
+        eval_specs = evaluation_specs(
+            args.eval_mode,
+            train_grid=args.train_grid,
+            repeats=args.eval_repeats,
+        )
+    registered_eval_total = len(eval_specs)
+    if args.eval_limit is not None:
+        if args.eval_limit < 1:
+            raise ValueError("--eval-limit must be at least one")
+        eval_specs = eval_specs[: args.eval_limit]
+    if args.policy_type != "mlp" and args.temporal_feature_mode != "legacy_progress_phase":
+        raise ValueError("temporal feature modes apply only to MLP policies")
+    manifest = ExperimentManifest.start(
+        repo_root=PROJECT_ROOT,
+        argv=command,
+        seeds={
+            "training_seeds": [int(seed) for seed in seed_values],
+            "demo_repeats": args.demo_repeats,
+        },
+        metadata={"evaluation_protocol": protocol_metadata},
+    )
     output_dir = args.output_dir
     demo_dir = args.demo_dir or output_dir / "scripted_pickup_demos"
     model_dir = output_dir / "models"
     result_dir = output_dir / "eval"
-    seed_values = list(args.seeds) if args.seeds is not None else [args.seed]
     demo_paths = generate_demos(
         demo_dir,
-        training_specs(args.train_grid, repeats=args.demo_repeats),
+        train_specs,
+        evaluation_protocol=protocol_metadata,
     )
 
     all_results = []
     per_policy = {}
+    generated_outputs: list[Path] = [demo_dir / "manifest.json", *demo_paths]
     for action_space in ACTION_SPACES:
         action_gain = (
             args.joint_action_gain
@@ -229,8 +278,15 @@ def run(args: argparse.Namespace) -> dict:
                     learning_rate=args.learning_rate,
                     weight_decay=args.weight_decay,
                     seed=seed,
+                    temporal_feature_mode=args.temporal_feature_mode,
                 )
                 model_path = model_dir / f"{action_space}_mlp_bc{seed_suffix}.npz"
+            policy.evaluation_config_hash = (
+                str(protocol_metadata["config_sha256"]) if protocol_metadata else ""
+            )
+            policy.evaluation_protocol_version = (
+                int(protocol_metadata["version"]) if protocol_metadata else 0
+            )
             policy.save(model_path)
 
             train_summary = {
@@ -246,6 +302,14 @@ def run(args: argparse.Namespace) -> dict:
                 "search_window": args.search_window,
                 "action_gain": action_gain,
                 "eval_mode": args.eval_mode,
+                "eval_split": args.eval_split,
+                "evaluation_protocol": protocol_metadata,
+                "evaluation_config_hash": (
+                    protocol_metadata["config_sha256"] if protocol_metadata else None
+                ),
+                "registered_eval_total": registered_eval_total,
+                "evaluated_spec_count": len(eval_specs),
+                "explicit_eval_limit": args.eval_limit,
                 "train_grid": args.train_grid,
                 "label_source": dataset.label_source,
                 "feature_names": dataset.feature_names,
@@ -256,22 +320,32 @@ def run(args: argparse.Namespace) -> dict:
                 ),
                 "policy_limit_note": (
                     "Nearest-neighbor is a replay-style baseline; MLP is a compact "
-                    "state/progress parametric baseline. Both must be judged by held-out "
+                    "state BC baseline using its recorded input contract. Both must be judged by held-out "
                     "MuJoCo rollout success, not by supervised loss alone."
                 ),
             }
             training_summaries.append(train_summary)
-            write_json(output_dir / f"{action_space}{seed_suffix}_training_summary.json", train_summary)
+            training_summary_path = output_dir / f"{action_space}{seed_suffix}_training_summary.json"
+            write_json(training_summary_path, train_summary)
+            generated_outputs.extend([model_path, training_summary_path])
 
             env = PickupTaskEvaluator()
             seed_results = []
             skipped_specs = []
             available_contexts = set(policy.group_keys)
-            for spec in evaluation_specs(
-                args.eval_mode,
-                train_grid=args.train_grid,
-                repeats=args.eval_repeats,
-            ):
+            missing_contexts = sorted(
+                {
+                    TaskContext.from_spec(spec).key
+                    for spec in eval_specs
+                    if TaskContext.from_spec(spec).key not in available_contexts
+                }
+            )
+            if protocol is not None and missing_contexts:
+                raise RuntimeError(
+                    "v2 evaluation denominator is incomplete; no successful training demo "
+                    f"for contexts: {missing_contexts}"
+                )
+            for spec in eval_specs:
                 context = TaskContext.from_spec(spec)
                 if context.key not in available_contexts:
                     skipped_specs.append(
@@ -292,12 +366,17 @@ def run(args: argparse.Namespace) -> dict:
                     max_steps=args.max_steps,
                     search_window=args.search_window,
                     action_gain=action_gain,
+                    gripper_close_guard=args.gripper_close_guard,
                 )
                 seed_results.append(result)
                 policy_results.append(result)
                 all_results.append(result)
                 record = result.to_dict()
                 record["seed"] = int(seed)
+                record["evaluation_protocol"] = protocol_metadata
+                record["evaluation_config_hash"] = (
+                    protocol_metadata["config_sha256"] if protocol_metadata else None
+                )
                 policy_result_records.append(record)
                 print(
                     f"policy={action_space} seed={seed} trial={result.trial_id:02d} "
@@ -309,6 +388,14 @@ def run(args: argparse.Namespace) -> dict:
             seed_summary = summarize_policy_results(seed_results)
             seed_summary["seed"] = int(seed)
             seed_summary["skipped_eval_specs"] = skipped_specs
+            seed_summary["evaluation_protocol"] = protocol_metadata
+            seed_summary["evaluation_config_hash"] = (
+                protocol_metadata["config_sha256"] if protocol_metadata else None
+            )
+            if protocol is not None and len(seed_results) != len(eval_specs):
+                raise RuntimeError(
+                    f"v2 evaluation produced {len(seed_results)} results for {len(eval_specs)} specs"
+                )
             seed_summary["training_summary"] = train_summary
             seed_summaries.append(seed_summary)
 
@@ -321,7 +408,13 @@ def run(args: argparse.Namespace) -> dict:
         summary["seeds"] = [int(seed) for seed in seed_values]
         summary["seed_summaries"] = seed_summaries
         summary["training_summaries"] = training_summaries
-        write_json(result_path.with_suffix(".summary.json"), summary)
+        summary["evaluation_protocol"] = protocol_metadata
+        summary["evaluation_config_hash"] = (
+            protocol_metadata["config_sha256"] if protocol_metadata else None
+        )
+        result_summary_path = result_path.with_suffix(".summary.json")
+        write_json(result_summary_path, summary)
+        generated_outputs.extend([result_path, result_summary_path])
         per_policy[action_space] = summary
 
     combined = summarize_policy_results(all_results)
@@ -329,6 +422,16 @@ def run(args: argparse.Namespace) -> dict:
     combined["demo_dir"] = str(demo_dir)
     combined["output_dir"] = str(output_dir)
     combined["seeds"] = [int(seed) for seed in seed_values]
+    combined["evaluation_protocol"] = protocol_metadata
+    combined["evaluation_config_hash"] = (
+        protocol_metadata["config_sha256"] if protocol_metadata else None
+    )
+    combined["eval_split"] = args.eval_split
+    combined["eval_spec_count_per_seed"] = len(eval_specs)
+    combined["registered_eval_total_per_seed"] = registered_eval_total
+    combined["explicit_eval_limit"] = args.eval_limit
+    combined["temporal_feature_mode"] = args.temporal_feature_mode
+    combined["shielded_policy"] = bool(args.gripper_close_guard)
     combined["action_gains"] = {
         "joint_delta": args.joint_action_gain
         if args.joint_action_gain is not None
@@ -337,8 +440,13 @@ def run(args: argparse.Namespace) -> dict:
         if args.ee_action_gain is not None
         else args.action_gain,
     }
-    write_json(output_dir / "state_bc_summary.json", combined)
+    summary_path = output_dir / "state_bc_summary.json"
+    write_json(summary_path, combined)
+    generated_outputs.append(summary_path)
+    manifest.add_outputs(generated_outputs)
+    manifest_path = manifest.write_sidecar(summary_path)
     print(json.dumps(combined, indent=2, sort_keys=True))
+    print(f"wrote {manifest_path}")
     return combined
 
 
@@ -354,12 +462,30 @@ def main() -> None:
     parser.add_argument("--train-grid", choices=("default", "dense"), default="default")
     parser.add_argument("--eval-repeats", type=int, default=1)
     parser.add_argument(
+        "--evaluation-protocol",
+        choices=("legacy", "v2"),
+        default="legacy",
+        help="Use the tracked v2 protocol or preserve a historical legacy grid.",
+    )
+    parser.add_argument(
+        "--eval-split",
+        choices=("train", "validation", "final"),
+        default=None,
+        help="Required for v2. The new final holdout is only accessible via this explicit flag.",
+    )
+    parser.add_argument(
         "--eval-mode",
         choices=("train", "heldout", "test", "audit", "final", "both"),
         default="both",
     )
     parser.add_argument("--max-steps", type=int, default=3200)
     parser.add_argument("--policy-type", choices=("nearest", "mlp"), default="mlp")
+    parser.add_argument(
+        "--temporal-feature-mode",
+        choices=("legacy_progress_phase", "none"),
+        default="legacy_progress_phase",
+        help="MLP input contract; none retrains without cursor/progress/phase and adds distance.",
+    )
     parser.add_argument("--k", type=int, default=1)
     parser.add_argument("--temperature", type=float, default=0.75)
     parser.add_argument("--hidden-sizes", type=int, nargs="+", default=[64, 64])
@@ -373,7 +499,10 @@ def main() -> None:
         type=int,
         nargs="+",
         default=None,
-        help="Train/evaluate one policy per seed; defaults to --seed.",
+        help=(
+            "Train/evaluate one policy per seed; defaults to the protocol's five seeds "
+            "for v2 and --seed for legacy."
+        ),
     )
     parser.add_argument("--stride", type=int, default=1)
     parser.add_argument("--search-window", type=int, default=5)
@@ -386,6 +515,17 @@ def main() -> None:
     parser.add_argument("--joint-action-gain", type=float, default=None)
     parser.add_argument("--ee-action-gain", type=float, default=None)
     parser.add_argument(
+        "--gripper-close-guard",
+        action="store_true",
+        help="Diagnostic shield: suppress close while farther than EARLY_CLOSE_DISTANCE.",
+    )
+    parser.add_argument(
+        "--eval-limit",
+        type=int,
+        default=None,
+        help="Explicit diagnostic-only prefix limit; recorded in outputs and never implicit.",
+    )
+    parser.add_argument(
         "--label-source",
         choices=("policy_labels", "labels"),
         default="policy_labels",
@@ -397,7 +537,7 @@ def main() -> None:
         help="Include scripted demos that failed the pickup success criteria.",
     )
     args = parser.parse_args()
-    run(args)
+    run(args, command=sys.argv)
 
 
 if __name__ == "__main__":

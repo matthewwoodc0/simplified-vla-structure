@@ -19,5 +19,6 @@ build/
 
 # OS / editor
 .DS_Store
+.cursor/
 .idea/
 .vscode/

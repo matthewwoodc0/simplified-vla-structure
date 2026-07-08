@@ -4,9 +4,11 @@ import argparse
 import json
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 
 import numpy as np
 
+from svla.experiment_manifest import ExperimentManifest
 from svla.pickup_task import (
     BASE_OBJECT_HALF_SIZE,
     PickupTaskEvaluator,
@@ -175,7 +177,12 @@ def _random_specs(
     return cases
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
+    manifest = ExperimentManifest.start(
+        repo_root=PROJECT_ROOT,
+        argv=command,
+        seeds={"random_cases_seed": args.seed},
+    )
     if args.domain == "readiness":
         scenarios = READINESS_SCENARIOS
         random_bounds = (0.95, 1.05, 1.6, 2.0)
@@ -270,6 +277,9 @@ def run(args: argparse.Namespace) -> dict:
         f"{summary['max_object_xy_displacement_while_supported'] * 1000:.3f}mm"
     )
     print(f"wrote {args.output}")
+    manifest.add_output(args.output)
+    manifest_path = manifest.write_sidecar(args.output)
+    print(f"wrote {manifest_path}")
     if not summary["pass"]:
         raise SystemExit(1)
     return summary
@@ -287,7 +297,7 @@ def main() -> None:
         type=Path,
         default=PROJECT_ROOT / "outputs" / "task_robustness_summary.json",
     )
-    run(parser.parse_args())
+    run(parser.parse_args(), command=sys.argv)
 
 
 if __name__ == "__main__":

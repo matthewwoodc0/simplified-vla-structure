@@ -37,8 +37,15 @@ def replay_demo_policy_labels(
         "infeasible_steps": 0,
         "controller_failure_steps": 0,
     }
+    contact_during_close = False
     for sample_index, sample in enumerate(demo["samples"]):
+        sample_phase = str(sample.get("phase", ""))
         maybe_finalize_grasp_at_sample(env, sample_index, boundary_index)
+        close_contact_steps_before = None
+        if task == "pick_place" and sample_phase == "close_gripper":
+            close_contact_steps_before = int(
+                env.get_success_metrics()["close_contact_steps"]
+            )
         action = np.asarray(sample["policy_labels"][action_space], dtype=float)
         if action_space == "joint_delta":
             _, _, status = env.step_joint_delta_action(action[:5], action[5])
@@ -52,8 +59,22 @@ def replay_demo_policy_labels(
         counts["joint_accel_clipped_steps"] += int(get("joint_accel_clipped"))
         counts["infeasible_steps"] += int(get("infeasible"))
         counts["controller_failure_steps"] += int(get("controller_failed"))
+        if close_contact_steps_before is not None:
+            close_contact_steps_after = int(
+                env.get_success_metrics()["close_contact_steps"]
+            )
+            contact_during_close = contact_during_close or (
+                close_contact_steps_after > close_contact_steps_before
+            )
 
-    return _summarize_replay(env, demo, trial, task, counts)
+    return _summarize_replay(
+        env,
+        demo,
+        trial,
+        task,
+        counts,
+        contact_during_close=contact_during_close,
+    )
 
 
 def _summarize_replay(
@@ -62,6 +83,8 @@ def _summarize_replay(
     trial: dict,
     task: str,
     counts: dict,
+    *,
+    contact_during_close: bool = False,
 ) -> dict:
     steps = len(demo["samples"])
     if task == "pick_place":
@@ -75,7 +98,7 @@ def _summarize_replay(
             grasp_metrics["collision_free_approach"]
             and grasp_metrics["event_order_valid"]
             and grasp_metrics["physical_sanity_pass"]
-            and grasp_metrics["contact_achieved"]
+            and contact_during_close
             and grasp_metrics["object_lifted"]
             and grasp_metrics["retained_during_hold"]
             and placement_ok
@@ -127,6 +150,7 @@ def _summarize_replay(
         result["placement_target"] = trial.get("placement_target")
         result["placement_achieved"] = placement_achieved
         result["placement_xy_error"] = placement_xy_error
+        result["contact_during_close"] = bool(contact_during_close)
         result["grasp_segment_finalize_sample_index"] = int(
             demo["metadata"]["grasp_segment_finalize_sample_index"]
         )

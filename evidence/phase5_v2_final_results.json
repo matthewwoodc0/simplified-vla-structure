@@ -1,0 +1,87 @@
+{
+  "format": "svla_phase5_v2_final_results_v1",
+  "evaluation_config_sha256": "bffd862d76f401a9b512826ec8ca1207fba88bd12539a59370716bd22e946f99",
+  "selection_record": "evidence/phase5_v2_model_selection.json",
+  "selected_temporal_feature_mode": "legacy_progress_phase",
+  "final_access": {
+    "raw_selected_policy": "outputs/phase5_v2_final_selected_legacy/state_bc_summary.json",
+    "raw_manifest": "outputs/phase5_v2_final_selected_legacy/state_bc_summary.manifest.json",
+    "guarded_diagnostic": "outputs/phase5_v2_final_legacy_guarded_diagnostic/state_bc_summary.json",
+    "guarded_manifest": "outputs/phase5_v2_final_legacy_guarded_diagnostic/state_bc_summary.manifest.json",
+    "raw_and_guarded_source_identity_match": true,
+    "raw_and_guarded_models_byte_identical": true,
+    "rows_per_action_space_per_run": 120,
+    "model_seeds": [0, 1, 2, 3, 4],
+    "eval_specs_per_seed": 24
+  },
+  "raw": {
+    "shielded_policy": false,
+    "joint_delta": {
+      "successes": 51,
+      "event_order_valid": 65,
+      "physical_sanity_pass": 80,
+      "event_and_physical_pass": 52,
+      "early_close_trials": 11,
+      "preclose_contact_steps": 0,
+      "reopen_events": 128,
+      "controller_failure_steps": 0,
+      "joint_limit_clipped_steps": 36554,
+      "rollout_steps": 186000,
+      "per_seed_successes": [8, 14, 2, 12, 15]
+    },
+    "ee_tool_delta": {
+      "successes": 28,
+      "event_order_valid": 38,
+      "physical_sanity_pass": 68,
+      "event_and_physical_pass": 29,
+      "early_close_trials": 2,
+      "preclose_contact_steps": 741,
+      "reopen_events": 196,
+      "controller_failure_steps": 0,
+      "joint_limit_clipped_steps": 58438,
+      "rollout_steps": 274626,
+      "per_seed_successes": [9, 2, 3, 6, 8]
+    }
+  },
+  "guarded_diagnostic": {
+    "shielded_policy": true,
+    "joint_delta": {
+      "successes": 55,
+      "event_order_valid": 70,
+      "physical_sanity_pass": 76,
+      "event_and_physical_pass": 56,
+      "early_close_trials": 0,
+      "preclose_contact_steps": 0,
+      "reopen_events": 126,
+      "suppressed_close_steps": 477,
+      "controller_failure_steps": 0,
+      "per_seed_successes": [10, 16, 2, 12, 15]
+    },
+    "ee_tool_delta": {
+      "successes": 28,
+      "event_order_valid": 38,
+      "physical_sanity_pass": 69,
+      "event_and_physical_pass": 29,
+      "early_close_trials": 0,
+      "preclose_contact_steps": 741,
+      "reopen_events": 198,
+      "suppressed_close_steps": 507,
+      "controller_failure_steps": 0,
+      "per_seed_successes": [9, 2, 3, 6, 8]
+    }
+  },
+  "proposed_gate_evaluation": {
+    "status": "proposed_awaiting_approval",
+    "raw_joint_delta": "fail",
+    "raw_ee_tool_delta": "fail",
+    "hard_limit_or_infeasible_method": "Use joint_limit_clipped_steps / rollout_steps. In both action adapters, infeasible is defined as a subset of joint-limit clipping, so this is the exact per-step union without summing overlapping counters.",
+    "raw_joint_delta_hard_limit_or_infeasible_rate": 0.19652688172043012,
+    "raw_ee_tool_delta_hard_limit_or_infeasible_rate": 0.2127912142331753
+  },
+  "hypothesis_verdicts": {
+    "H-EE-012": "rejected_on_registered_validation",
+    "H-EE-011": "rejected_on_registered_final_diagnostic",
+    "H-JNT-001": "rejected_on_registered_final_diagnostic"
+  },
+  "interpretation": "Scripted execution and policy-label replay are viable in the declared simulator envelope, but neither raw learned policy is ready for the primary action-space comparison. Event order, physical sanity, hard-limit exposure, and seed instability all remain material. The distance guard removes early-close flags but does not fix EE success or event ordering; guarded results are diagnostic and do not replace the raw ladder."
+}

@@ -11,6 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from svla.demo_recorder import PickupDemoRecorder
+from svla.experiment_manifest import ExperimentManifest
 from svla.pick_place_replay import ACTION_SPACES, replay_demo_policy_labels
 from svla.pickup_task import (
     OBJECT_START_Z,
@@ -26,9 +27,18 @@ from svla.pickup_task import (
 from svla.state_bc import write_json
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
+    manifest = ExperimentManifest.start(
+        repo_root=PROJECT_ROOT,
+        argv=command,
+        seeds={"repeats": args.repeats, "task": args.task},
+    )
     if args.task == "compare":
-        return run_compare(args)
+        summary = run_compare(args)
+        manifest.add_output(args.output)
+        manifest_path = manifest.write_sidecar(args.output)
+        print(f"wrote {manifest_path}")
+        return summary
     if args.task == "pick_place":
         demos = [
             (spec, PickupDemoRecorder(PickupTaskEvaluator()).record_pick_place_trial(spec))
@@ -64,7 +74,10 @@ def run(args: argparse.Namespace) -> dict:
         "pass": _replay_passes(args.task, by_action_space),
     }
     write_json(args.output, summary)
+    manifest.add_output(args.output)
+    manifest_path = manifest.write_sidecar(args.output)
     print(json.dumps(summary, indent=2, sort_keys=True))
+    print(f"wrote {manifest_path}")
     if args.require_pass and not summary["pass"]:
         raise SystemExit(1)
     return summary
@@ -146,6 +159,11 @@ def _summarize_trials(trials: list[dict]) -> dict:
         "max_preclose_object_displacement": max(
             trial["preclose_max_object_displacement"] for trial in trials
         ),
+        "placement_achieved": sum(
+            bool(trial["placement_achieved"])
+            for trial in trials
+            if trial.get("placement_achieved") is not None
+        ),
         "trials": trials,
     }
 
@@ -153,9 +171,13 @@ def _summarize_trials(trials: list[dict]) -> dict:
 def _replay_passes(task: str, by_action_space: dict) -> bool:
     if task == "pick_place":
         return all(
-            result["valid_event_orders"] == result["total"]
-            and result["physical_sanity_passes"] == result["total"]
+            result["successes"] == result["total"]
+            and result["controller_failure_steps"] == 0
             and result["collision_free_approaches"] == result["total"]
+            and result["valid_event_orders"] == result["total"]
+            and result["physical_sanity_passes"] == result["total"]
+            and result["preclose_contact_steps"] == 0
+            and result["placement_achieved"] == result["total"]
             for result in by_action_space.values()
         )
     return all(
@@ -198,7 +220,7 @@ def main() -> None:
         action="store_true",
         help="Exit non-zero when replay gates fail.",
     )
-    run(parser.parse_args())
+    run(parser.parse_args(), command=sys.argv)
 
 
 if __name__ == "__main__":

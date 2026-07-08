@@ -1,0 +1,52 @@
+{
+  "format": "svla_phase5_v2_model_selection_v1",
+  "status": "frozen_before_final_evaluation",
+  "evaluation_config_sha256": "bffd862d76f401a9b512826ec8ca1207fba88bd12539a59370716bd22e946f99",
+  "validation_source_identity": {
+    "git_commit_sha": "5d3ea932804feb398894dbda9ae861538acaf559",
+    "git_dirty": true,
+    "git_diff_sha256": "83388f8efc72d28be5e28eff03e037965eecc0da293d06013808d3e5946e0618"
+  },
+  "shared_training_contract": {
+    "policy_type": "mlp",
+    "hidden_sizes": [128, 128],
+    "epochs": 300,
+    "batch_size": 1024,
+    "learning_rate": 0.001,
+    "weight_decay": 0.00001,
+    "stride": 1,
+    "max_steps": 3200,
+    "action_gain": 1.0,
+    "label_source": "policy_labels",
+    "model_seeds": [0, 1, 2, 3, 4]
+  },
+  "validation_candidates": {
+    "legacy_progress_phase": {
+      "summary": "outputs/phase5_v2_validation_legacy/state_bc_summary.json",
+      "manifest": "outputs/phase5_v2_validation_legacy/state_bc_summary.manifest.json",
+      "joint_delta_successes": 53,
+      "joint_delta_total": 120,
+      "ee_tool_delta_successes": 31,
+      "ee_tool_delta_total": 120,
+      "combined_successes": 84,
+      "combined_total": 240
+    },
+    "none": {
+      "summary": "outputs/phase5_v2_validation_cursor_free/state_bc_summary.json",
+      "manifest": "outputs/phase5_v2_validation_cursor_free/state_bc_summary.manifest.json",
+      "joint_delta_successes": 18,
+      "joint_delta_total": 120,
+      "ee_tool_delta_successes": 32,
+      "ee_tool_delta_total": 120,
+      "combined_successes": 50,
+      "combined_total": 240
+    }
+  },
+  "selected_temporal_feature_mode": "legacy_progress_phase",
+  "selection_reason": "One shared temporal contract is required for the action-space comparison. Cursor-free training changed EE success by only +1/120 while reducing EE event-order validity and increasing early-close failures, and it reduced joint success from 53/120 to 18/120. Legacy therefore has materially better combined validation performance without selecting a different architecture per action space.",
+  "hypothesis_verdict": {
+    "H-EE-012": "rejected_on_registered_validation",
+    "reason": "Cursor-free retraining did not materially improve EE success or event ordering and increased early-close failures."
+  },
+  "final_access_policy": "Run the registered final split once for the selected raw legacy policies. Any shielded-policy run must be separately labeled diagnostic evidence and must not replace the raw result."
+}

@@ -56,6 +56,33 @@ MAX_SUPPORTED_ROTATION = 0.30
 GRASP_WIDTH_SHRINK_COMPENSATION_GAIN = 3.0
 GRASP_WIDTH_GROWTH_COMPENSATION_GAIN = 1.0
 
+PICKUP_CONTROLLER_LIMITS = ControllerLimits(
+    max_step_xyz=0.019,
+    max_step_rot=0.08,
+    max_target_lag_xyz=0.019,
+    max_joint_step=0.030,
+    posture_gain=0.07,
+    orientation_mode="tool_axis",
+    tool_axis_index=2,
+    position_tolerance=0.006,
+    rotation_tolerance=0.08,
+    min_gripper_open_fraction=0.05,
+)
+
+
+def pickup_physics_gate_constants() -> dict[str, float]:
+    return {
+        "LIFT_CLEARANCE": LIFT_CLEARANCE,
+        "RETENTION_CLEARANCE": RETENTION_CLEARANCE,
+        "PRECLOSE_OPEN_THRESHOLD": PRECLOSE_OPEN_THRESHOLD,
+        "PRECLOSE_DISPLACEMENT_TOLERANCE": PRECLOSE_DISPLACEMENT_TOLERANCE,
+        "EARLY_CLOSE_DISTANCE": EARLY_CLOSE_DISTANCE,
+        "MAX_GRIPPER_CONTACT_FORCE": MAX_GRIPPER_CONTACT_FORCE,
+        "MAX_GRIPPER_IMPULSE_BEFORE_LIFT": MAX_GRIPPER_IMPULSE_BEFORE_LIFT,
+        "MAX_SUPPORTED_XY_DISPLACEMENT": MAX_SUPPORTED_XY_DISPLACEMENT,
+        "MAX_SUPPORTED_ROTATION": MAX_SUPPORTED_ROTATION,
+    }
+
 
 @dataclass(frozen=True)
 class GraspOrientation:
@@ -232,19 +259,7 @@ class PickupTaskEvaluator:
     ) -> None:
         self.model = mujoco.MjModel.from_xml_path(str(model_path))
         self.data = mujoco.MjData(self.model)
-        limits = ControllerLimits(
-            max_step_xyz=0.019,
-            max_step_rot=0.08,
-            max_target_lag_xyz=0.019,
-            max_joint_step=0.030,
-            posture_gain=0.07,
-            orientation_mode="tool_axis",
-            tool_axis_index=2,
-            position_tolerance=0.006,
-            rotation_tolerance=0.08,
-            min_gripper_open_fraction=0.05,
-        )
-        self.controller = CartesianIKController(self.model, limits=limits)
+        self.controller = CartesianIKController(self.model, limits=PICKUP_CONTROLLER_LIMITS)
         self.object_joint_id = _require_id(
             self.model, mujoco.mjtObj.mjOBJ_JOINT, "pickup_object_freejoint"
         )
@@ -915,7 +930,7 @@ class PickupTaskEvaluator:
                 )
             if command.phase == "close_gripper":
                 contact_during_close = contact_during_close or bool(
-                    phase_stats["contact_achieved"]
+                    int(phase_stats["close_contact_steps_delta"]) > 0
                 )
             if command.phase == "hold":
                 retained = bool(phase_stats["retained_during_hold"])
@@ -929,13 +944,12 @@ class PickupTaskEvaluator:
         event_order_valid = bool(grasp_metrics["event_order_valid"])
         physical_sanity_pass = bool(grasp_metrics["physical_sanity_pass"])
         object_lifted = bool(grasp_metrics["object_lifted"])
-        contact_achieved = bool(grasp_metrics["contact_achieved"])
         success = bool(
             collision_free_approach
             and event_order_valid
             and physical_sanity_pass
             and reached_grasp
-            and contact_achieved
+            and contact_during_close
             and object_lifted
             and retained
             and placement_achieved
@@ -945,7 +959,7 @@ class PickupTaskEvaluator:
             event_order_valid=event_order_valid,
             physical_sanity_pass=physical_sanity_pass,
             reached_grasp=reached_grasp,
-            contact=contact_achieved,
+            contact=contact_during_close,
             lifted=object_lifted,
             retained=retained,
             placement_achieved=placement_achieved,
@@ -974,7 +988,7 @@ class PickupTaskEvaluator:
             clipped_joints=clipped_joints,
             note=note,
             grasp_metrics=grasp_metrics,
-            contact=contact_achieved,
+            contact=contact_during_close,
             lifted=object_lifted,
             retained=retained,
         )
@@ -1130,6 +1144,7 @@ class PickupTaskEvaluator:
         contact_achieved = False
         hold_contact_steps = 0
         hold_lifted_steps = 0
+        close_contact_steps_start = self._episode_close_contact_steps
         hold_start_contact = self._episode_close_contact_steps
         hold_start_lifted = self._episode_lifted_steps
         settled_start = self._episode_object_start.copy()
@@ -1191,6 +1206,9 @@ class PickupTaskEvaluator:
             "clipped_joints": clipped_joints,
             "max_lift": max_lift,
             "contact_achieved": contact_achieved,
+            "close_contact_steps_delta": (
+                self._episode_close_contact_steps - close_contact_steps_start
+            ),
             "retained_during_hold": retained_during_hold,
             "steps_executed": steps_executed,
         }
@@ -1567,7 +1585,7 @@ class PickupTaskEvaluator:
             gripper_orientation_wxyz=_round_list(grasp_quat),
             final_ee_position_error=float(final_position_error),
             final_ee_rotation_error=float(final_rotation_error),
-            contact_achieved=bool(contact or grasp_metrics["contact_achieved"]),
+            contact_achieved=bool(contact),
             object_lifted=bool(lifted or grasp_metrics["object_lifted"]),
             retained_during_hold=bool(retained or grasp_metrics["retained_during_hold"]),
             placement_achieved=bool(placement_achieved),

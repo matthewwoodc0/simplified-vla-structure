@@ -18,6 +18,7 @@ from svla.pickup_task import (
     PickPlaceTrialSpec,
     PickupTaskEvaluator,
     PlacementTarget,
+    ScriptedControllerCommand,
     default_pick_place_trial_specs,
     summarize_pick_place_results,
 )
@@ -138,7 +139,8 @@ def test_place_left_command_marker_ablation(goal_marker, command_marker, expect_
         assert result.placement_xy_error > PLACEMENT_XY_TOLERANCE
 
 
-def test_pick_place_policy_label_replay_preserves_grasp_event_order():
+@pytest.mark.parametrize("action_space", ("joint_delta", "ee_tool_delta"))
+def test_pick_place_policy_label_replay_preserves_grasp_event_order(action_space):
     recorder = PickupDemoRecorder(PickupTaskEvaluator())
     spec = PickPlaceTrialSpec(
         trial_id=1,
@@ -151,16 +153,80 @@ def test_pick_place_policy_label_replay_preserves_grasp_event_order():
     assert demo["metadata"]["grasp_segment_finalize_sample_index"] is not None
     replay = replay_demo_policy_labels(
         demo,
-        "ee_tool_delta",
+        action_space,
         np.asarray(spec.object_pose.xyz, dtype=float),
         task="pick_place",
     )
+    assert replay["success"]
+    assert replay["contact_during_close"]
+    assert replay["placement_achieved"]
     assert replay["event_order_valid"]
     assert replay["reopen_events"] == 0
     assert replay["physical_sanity_pass"]
     assert replay["grasp_segment_finalize_sample_index"] == demo["metadata"][
         "grasp_segment_finalize_sample_index"
     ]
+
+
+def test_pick_place_ignores_endpoint_contact_without_close_phase_contact_steps(monkeypatch):
+    evaluator = PickupTaskEvaluator()
+    spec = PickPlaceTrialSpec(
+        trial_id=102,
+        orientation=GraspOrientation("yaw_0", 0.0),
+        object_pose=ObjectStartPose("center", np.array([0.0, -0.235, OBJECT_START_Z])),
+        approach=ApproachStrategy("vertical_pregrasp", "world_z"),
+        placement_target=PlacementTarget("place_right", "place_right_marker", "place_right_marker"),
+    )
+    original_execute = evaluator._execute_scripted_command
+
+    def patched_execute(command, **kwargs):
+        stats = original_execute(command, **kwargs)
+        if command.phase == "close_gripper":
+            return {
+                **stats,
+                "contact_achieved": True,
+                "close_contact_steps_delta": 0,
+            }
+        if command.phase == "lift":
+            return {**stats, "contact_achieved": True}
+        return stats
+
+    monkeypatch.setattr(evaluator, "_execute_scripted_command", patched_execute)
+    result = evaluator.run_pick_place_trial(spec)
+
+    assert not result.success
+    assert not result.contact_achieved
+
+
+def test_scripted_command_reports_transient_close_contact_steps(monkeypatch):
+    evaluator = PickupTaskEvaluator()
+    spec = default_pick_place_trial_specs()[0]
+    evaluator.reset(spec.object_pose.xyz)
+    commands, _, _, _ = evaluator.scripted_pick_place_commands(spec)
+    close_command = next(command for command in commands if command.phase == "close_gripper")
+    one_step_close = ScriptedControllerCommand(
+        phase=close_command.phase,
+        target_pos=close_command.target_pos,
+        target_quat_wxyz=close_command.target_quat_wxyz,
+        gripper_open=close_command.gripper_open,
+        max_steps=1,
+        stop_on_pose_tolerance=False,
+    )
+
+    def transient_contact_step(_substeps, _gripper_open):
+        evaluator._episode_close_contact_steps += 1
+
+    monkeypatch.setattr(evaluator, "_advance_episode_physics", transient_contact_step)
+    monkeypatch.setattr(
+        PickupTaskEvaluator,
+        "gripper_object_contact",
+        property(lambda _self: False),
+    )
+
+    stats = evaluator._execute_scripted_command(one_step_close)
+
+    assert stats["close_contact_steps_delta"] == 1
+    assert not stats["contact_achieved"]
 
 
 def test_recorded_pick_place_demo_contains_aligned_labels(tmp_path):

@@ -7,7 +7,9 @@ import json
 import numpy as np
 
 from svla.pickup_task import (
+    EARLY_CLOSE_DISTANCE,
     LIFT_CLEARANCE,
+    PRECLOSE_OPEN_THRESHOLD,
     RETENTION_CLEARANCE,
     PickupTaskEvaluator,
     PickupTrialSpec,
@@ -27,6 +29,7 @@ PHASE_LABELS = (
     "lift",
     "hold",
 )
+TEMPORAL_FEATURE_MODES = ("legacy_progress_phase", "none")
 MATCH_FEATURE_INDICES = np.array([18, 19, 20, 28, 29, 30], dtype=int)
 
 
@@ -130,6 +133,14 @@ class PolicyTrialResult:
     infeasible_steps: int
     controller_failure_steps: int
     controller_failure_reason: str | None
+    shielded_policy: bool
+    suppressed_close_steps: int
+    raw_action_l2_mean: float
+    raw_action_l2_max: float
+    raw_action_delta_l2_mean: float
+    executed_action_l2_mean: float
+    executed_action_l2_max: float
+    executed_action_delta_l2_mean: float
     action_l2_mean: float
     action_l2_max: float
     action_delta_l2_mean: float
@@ -158,6 +169,8 @@ class NearestNeighborBCPolicy:
         actions: np.ndarray,
         k: int = 8,
         temperature: float = 0.75,
+        evaluation_config_hash: str = "",
+        evaluation_protocol_version: int = 0,
     ) -> None:
         if action_space not in ACTION_SPACE_SIZES:
             raise ValueError(f"unknown action space: {action_space}")
@@ -174,6 +187,8 @@ class NearestNeighborBCPolicy:
         self.actions = actions
         self.k = int(k)
         self.temperature = float(temperature)
+        self.evaluation_config_hash = str(evaluation_config_hash)
+        self.evaluation_protocol_version = int(evaluation_protocol_version)
         self._group_index = {key: index for index, key in enumerate(group_keys)}
 
     def predict(self, observation_features: np.ndarray, group_key: str) -> tuple[np.ndarray, float]:
@@ -239,6 +254,8 @@ class NearestNeighborBCPolicy:
             actions=self.actions,
             k=np.array(self.k),
             temperature=np.array(self.temperature),
+            evaluation_config_hash=np.array(self.evaluation_config_hash),
+            evaluation_protocol_version=np.array(self.evaluation_protocol_version),
         )
 
     def _standardize(self, features: np.ndarray) -> np.ndarray:
@@ -246,7 +263,7 @@ class NearestNeighborBCPolicy:
 
 
 class MLPBCPolicy:
-    """Small numpy MLP behavioral-cloning policy with progress input."""
+    """Small numpy MLP BC policy with an explicit temporal-feature contract."""
 
     def __init__(
         self,
@@ -260,6 +277,13 @@ class MLPBCPolicy:
         group_keys: list[str],
         group_max_progress: np.ndarray,
         group_phase_lengths: np.ndarray,
+        temporal_feature_mode: str = "legacy_progress_phase",
+        distance_mean: float = 0.0,
+        distance_scale: float = 1.0,
+        base_feature_names: list[str] | None = None,
+        policy_feature_names: list[str] | None = None,
+        evaluation_config_hash: str = "",
+        evaluation_protocol_version: int = 0,
     ) -> None:
         if action_space not in ACTION_SPACE_SIZES:
             raise ValueError(f"unknown action space: {action_space}")
@@ -273,6 +297,17 @@ class MLPBCPolicy:
         self.group_keys = group_keys
         self.group_max_progress = group_max_progress
         self.group_phase_lengths = group_phase_lengths
+        if temporal_feature_mode not in TEMPORAL_FEATURE_MODES:
+            raise ValueError(f"unknown temporal feature mode: {temporal_feature_mode}")
+        self.temporal_feature_mode = temporal_feature_mode
+        self.distance_mean = float(distance_mean)
+        self.distance_scale = max(float(distance_scale), 1e-9)
+        self.base_feature_names = list(base_feature_names or observation_feature_names())
+        self.policy_feature_names = list(
+            policy_feature_names or mlp_policy_feature_names(temporal_feature_mode)
+        )
+        self.evaluation_config_hash = str(evaluation_config_hash)
+        self.evaluation_protocol_version = int(evaluation_protocol_version)
         self._group_index = {key: index for index, key in enumerate(group_keys)}
 
     def predict_with_index(
@@ -308,6 +343,13 @@ class MLPBCPolicy:
             "group_keys": np.array(self.group_keys),
             "group_max_progress": self.group_max_progress,
             "group_phase_lengths": self.group_phase_lengths,
+            "temporal_feature_mode": np.array(self.temporal_feature_mode),
+            "distance_mean": np.array(self.distance_mean),
+            "distance_scale": np.array(self.distance_scale),
+            "base_feature_names": np.asarray(self.base_feature_names),
+            "policy_feature_names": np.asarray(self.policy_feature_names),
+            "evaluation_config_hash": np.array(self.evaluation_config_hash),
+            "evaluation_protocol_version": np.array(self.evaluation_protocol_version),
             "layer_count": np.array(len(self.weights)),
         }
         for index, (weights, bias) in enumerate(zip(self.weights, self.biases)):
@@ -323,12 +365,17 @@ class MLPBCPolicy:
     ) -> np.ndarray:
         if group_key not in self._group_index:
             raise KeyError(f"policy has no demonstrations for task context {group_key!r}")
+        raw = np.asarray(observation_features, dtype=float)
+        base = (raw - self.feature_mean) / self.feature_scale
+        if self.temporal_feature_mode == "none":
+            distance = _gripper_object_distance_from_features(raw)
+            normalized_distance = (distance - self.distance_mean) / self.distance_scale
+            return np.concatenate((base, np.array([normalized_distance], dtype=float)))
         max_progress = max(1.0, float(self.group_max_progress[self._group_index[group_key]]))
         phase_index, phase_progress = self._phase_at_cursor(group_key, cursor)
         phase_one_hot = np.zeros(len(PHASE_LABELS), dtype=float)
         phase_one_hot[phase_index] = 1.0
         progress = np.clip(float(cursor) / max_progress, 0.0, 1.5)
-        base = (np.asarray(observation_features, dtype=float) - self.feature_mean) / self.feature_scale
         return np.concatenate(
             (
                 base,
@@ -382,6 +429,37 @@ def load_policy(path: Path) -> NearestNeighborBCPolicy | MLPBCPolicy:
             group_keys=[str(key) for key in data["group_keys"].tolist()],
             group_max_progress=data["group_max_progress"],
             group_phase_lengths=data["group_phase_lengths"],
+            temporal_feature_mode=(
+                str(data["temporal_feature_mode"])
+                if "temporal_feature_mode" in data.files
+                else "legacy_progress_phase"
+            ),
+            distance_mean=(
+                float(data["distance_mean"]) if "distance_mean" in data.files else 0.0
+            ),
+            distance_scale=(
+                float(data["distance_scale"]) if "distance_scale" in data.files else 1.0
+            ),
+            base_feature_names=(
+                [str(name) for name in data["base_feature_names"].tolist()]
+                if "base_feature_names" in data.files
+                else observation_feature_names()
+            ),
+            policy_feature_names=(
+                [str(name) for name in data["policy_feature_names"].tolist()]
+                if "policy_feature_names" in data.files
+                else mlp_policy_feature_names("legacy_progress_phase")
+            ),
+            evaluation_config_hash=(
+                str(data["evaluation_config_hash"])
+                if "evaluation_config_hash" in data.files
+                else ""
+            ),
+            evaluation_protocol_version=(
+                int(data["evaluation_protocol_version"])
+                if "evaluation_protocol_version" in data.files
+                else 0
+            ),
         )
     return NearestNeighborBCPolicy(
         action_space=str(data["action_space"]),
@@ -397,6 +475,16 @@ def load_policy(path: Path) -> NearestNeighborBCPolicy | MLPBCPolicy:
         actions=data["actions"],
         k=int(data["k"]),
         temperature=float(data["temperature"]),
+        evaluation_config_hash=(
+            str(data["evaluation_config_hash"])
+            if "evaluation_config_hash" in data.files
+            else ""
+        ),
+        evaluation_protocol_version=(
+            int(data["evaluation_protocol_version"])
+            if "evaluation_protocol_version" in data.files
+            else 0
+        ),
     )
 
 
@@ -428,6 +516,26 @@ def observation_feature_names() -> list[str]:
         "task_yaw_sin",
         "task_yaw_cos",
         *(f"approach_{label}" for label in APPROACH_LABELS),
+    ]
+
+
+def mlp_policy_feature_names(temporal_feature_mode: str) -> list[str]:
+    if temporal_feature_mode not in TEMPORAL_FEATURE_MODES:
+        raise ValueError(f"unknown temporal feature mode: {temporal_feature_mode}")
+    base = observation_feature_names()
+    if temporal_feature_mode == "none":
+        return [*base, "gripper_object_distance"]
+    return [
+        *base,
+        "progress",
+        "progress_squared",
+        "progress_sin_pi",
+        "progress_cos_pi",
+        *(f"phase_{phase}" for phase in PHASE_LABELS),
+        "phase_progress",
+        "phase_progress_squared",
+        "phase_progress_sin_pi",
+        "phase_progress_cos_pi",
     ]
 
 
@@ -580,7 +688,10 @@ def fit_mlp_policy(
     learning_rate: float = 0.001,
     weight_decay: float = 1e-5,
     seed: int = 0,
+    temporal_feature_mode: str = "legacy_progress_phase",
 ) -> tuple[MLPBCPolicy, dict]:
+    if temporal_feature_mode not in TEMPORAL_FEATURE_MODES:
+        raise ValueError(f"unknown temporal feature mode: {temporal_feature_mode}")
     feature_mean = dataset.features.mean(axis=0)
     feature_scale = dataset.features.std(axis=0)
     feature_scale = np.where(feature_scale <= 1e-9, 1.0, feature_scale)
@@ -594,31 +705,39 @@ def fit_mlp_policy(
     )
     group_phase_lengths = _group_phase_lengths(dataset, group_keys)
     max_progress_by_key = {key: group_max_progress[index] for index, key in enumerate(group_keys)}
-    progress = np.array(
-        [
-            min(1.5, float(index) / max_progress_by_key[str(key)])
-            for index, key in zip(dataset.progress_indices, dataset.group_keys)
-        ],
-        dtype=float,
-    )
     base = (dataset.features - feature_mean) / feature_scale
-    phase_one_hot = np.zeros((len(dataset.phase_indices), len(PHASE_LABELS)), dtype=float)
-    phase_one_hot[np.arange(len(dataset.phase_indices)), dataset.phase_indices] = 1.0
-    phase_progress = dataset.phase_progress
-    x = np.column_stack(
-        (
-            base,
-            progress,
-            progress * progress,
-            np.sin(np.pi * progress),
-            np.cos(np.pi * progress),
-            phase_one_hot,
-            phase_progress,
-            phase_progress * phase_progress,
-            np.sin(np.pi * phase_progress),
-            np.cos(np.pi * phase_progress),
+    distance_mean = 0.0
+    distance_scale = 1.0
+    if temporal_feature_mode == "none":
+        distances = np.linalg.norm(dataset.features[:, 25:28], axis=1)
+        distance_mean = float(distances.mean())
+        distance_scale = max(float(distances.std()), 1e-9)
+        x = np.column_stack((base, (distances - distance_mean) / distance_scale))
+    else:
+        progress = np.array(
+            [
+                min(1.5, float(index) / max_progress_by_key[str(key)])
+                for index, key in zip(dataset.progress_indices, dataset.group_keys)
+            ],
+            dtype=float,
         )
-    )
+        phase_one_hot = np.zeros((len(dataset.phase_indices), len(PHASE_LABELS)), dtype=float)
+        phase_one_hot[np.arange(len(dataset.phase_indices)), dataset.phase_indices] = 1.0
+        phase_progress = dataset.phase_progress
+        x = np.column_stack(
+            (
+                base,
+                progress,
+                progress * progress,
+                np.sin(np.pi * progress),
+                np.cos(np.pi * progress),
+                phase_one_hot,
+                phase_progress,
+                phase_progress * phase_progress,
+                np.sin(np.pi * phase_progress),
+                np.cos(np.pi * phase_progress),
+            )
+        )
     action_mean = dataset.actions.mean(axis=0)
     action_scale = dataset.actions.std(axis=0)
     action_scale = np.where(action_scale <= 1e-9, 1.0, action_scale)
@@ -677,6 +796,11 @@ def fit_mlp_policy(
         group_keys=group_keys,
         group_max_progress=group_max_progress,
         group_phase_lengths=group_phase_lengths,
+        temporal_feature_mode=temporal_feature_mode,
+        distance_mean=distance_mean,
+        distance_scale=distance_scale,
+        base_feature_names=dataset.feature_names,
+        policy_feature_names=mlp_policy_feature_names(temporal_feature_mode),
     )
     return policy, {
         "policy_type": "mlp_bc",
@@ -686,6 +810,10 @@ def fit_mlp_policy(
         "learning_rate": float(learning_rate),
         "weight_decay": float(weight_decay),
         "seed": int(seed),
+        "temporal_feature_mode": temporal_feature_mode,
+        "base_feature_names": list(dataset.feature_names),
+        "policy_feature_names": mlp_policy_feature_names(temporal_feature_mode),
+        "policy_input_dimension": int(x.shape[1]),
         "train_mse_normalized": last_loss,
     }
 
@@ -723,6 +851,7 @@ def rollout_policy(
     max_steps: int = 3200,
     search_window: int = 120,
     action_gain: float = 1.0,
+    gripper_close_guard: bool = False,
 ) -> PolicyTrialResult:
     env.reset(np.asarray(spec.object_pose.xyz, dtype=float))
     settled_start = env.object_position.copy()
@@ -737,13 +866,18 @@ def rollout_policy(
     infeasible = 0
     controller_failures = 0
     controller_failure_reason: str | None = None
-    action_norms: list[float] = []
-    action_delta_norms: list[float] = []
+    raw_action_norms: list[float] = []
+    raw_action_delta_norms: list[float] = []
+    executed_action_norms: list[float] = []
+    executed_action_delta_norms: list[float] = []
     nearest_distances: list[float] = []
-    previous_action: np.ndarray | None = None
+    previous_raw_action: np.ndarray | None = None
+    previous_executed_action: np.ndarray | None = None
     min_grasp_pos_error = float("inf")
     min_grasp_rot_error = float("inf")
     cursor = 0
+    suppressed_close_steps = 0
+    guard_closure_started = False
 
     for _ in range(max_steps):
         observation = env.get_observation()
@@ -756,15 +890,31 @@ def rollout_policy(
         )
         cursor = max(cursor + 1, nearest_index + 1)
         nearest_distances.append(nearest_distance)
-        executed_action = action.copy()
+        raw_action = action.copy()
+        executed_action = raw_action.copy()
         if policy.action_space == "joint_delta":
             executed_action[:5] *= action_gain
         elif policy.action_space == "ee_tool_delta":
             executed_action[:5] *= action_gain
-        action_norms.append(float(np.linalg.norm(executed_action)))
-        if previous_action is not None:
-            action_delta_norms.append(float(np.linalg.norm(executed_action - previous_action)))
-        previous_action = executed_action.copy()
+        raw_action_norms.append(float(np.linalg.norm(raw_action)))
+        if previous_raw_action is not None:
+            raw_action_delta_norms.append(float(np.linalg.norm(raw_action - previous_raw_action)))
+        previous_raw_action = raw_action.copy()
+
+        executed_action, suppressed, guard_closure_started = apply_gripper_close_guard(
+            executed_action,
+            enabled=gripper_close_guard,
+            closure_started=guard_closure_started,
+            gripper_object_distance=env.gripper_object_distance(),
+        )
+        suppressed_close_steps += int(suppressed)
+
+        executed_action_norms.append(float(np.linalg.norm(executed_action)))
+        if previous_executed_action is not None:
+            executed_action_delta_norms.append(
+                float(np.linalg.norm(executed_action - previous_executed_action))
+            )
+        previous_executed_action = executed_action.copy()
 
         if policy.action_space == "joint_delta":
             _, _, status = env.step_joint_delta_action(executed_action[:5], executed_action[5])
@@ -860,7 +1010,7 @@ def rollout_policy(
         success=success,
         failure_category=failure_category,
         note=note,
-        steps=len(action_norms),
+        steps=len(executed_action_norms),
         contact_achieved=bool(metrics["contact_achieved"]),
         collision_free_approach=bool(metrics["collision_free_approach"]),
         preclose_contact_steps=int(metrics["preclose_contact_steps"]),
@@ -898,9 +1048,17 @@ def rollout_policy(
         infeasible_steps=infeasible,
         controller_failure_steps=controller_failures,
         controller_failure_reason=controller_failure_reason,
-        action_l2_mean=_mean(action_norms),
-        action_l2_max=max(action_norms) if action_norms else 0.0,
-        action_delta_l2_mean=_mean(action_delta_norms),
+        shielded_policy=bool(gripper_close_guard),
+        suppressed_close_steps=suppressed_close_steps,
+        raw_action_l2_mean=_mean(raw_action_norms),
+        raw_action_l2_max=max(raw_action_norms) if raw_action_norms else 0.0,
+        raw_action_delta_l2_mean=_mean(raw_action_delta_norms),
+        executed_action_l2_mean=_mean(executed_action_norms),
+        executed_action_l2_max=max(executed_action_norms) if executed_action_norms else 0.0,
+        executed_action_delta_l2_mean=_mean(executed_action_delta_norms),
+        action_l2_mean=_mean(executed_action_norms),
+        action_l2_max=max(executed_action_norms) if executed_action_norms else 0.0,
+        action_delta_l2_mean=_mean(executed_action_delta_norms),
         nearest_distance_mean=_mean(nearest_distances),
         nearest_distance_max=max(nearest_distances) if nearest_distances else 0.0,
     )
@@ -926,6 +1084,8 @@ def summarize_policy_results(results: list[PolicyTrialResult]) -> dict:
         "early_close_trials": sum(result.early_close for result in results),
         "reopen_events": sum(result.reopen_events for result in results),
         "reopen_command_steps": sum(result.reopen_command_steps for result in results),
+        "shielded_policy": bool(results) and all(result.shielded_policy for result in results),
+        "suppressed_close_steps": sum(result.suppressed_close_steps for result in results),
         "max_gripper_contact_force": max(
             (result.max_gripper_contact_force for result in results), default=0.0
         ),
@@ -945,6 +1105,16 @@ def summarize_policy_results(results: list[PolicyTrialResult]) -> dict:
         "mean_steps": _mean([result.steps for result in results]),
         "mean_action_l2": _mean([result.action_l2_mean for result in results]),
         "mean_action_delta_l2": _mean([result.action_delta_l2_mean for result in results]),
+        "mean_raw_action_l2": _mean([result.raw_action_l2_mean for result in results]),
+        "mean_raw_action_delta_l2": _mean(
+            [result.raw_action_delta_l2_mean for result in results]
+        ),
+        "mean_executed_action_l2": _mean(
+            [result.executed_action_l2_mean for result in results]
+        ),
+        "mean_executed_action_delta_l2": _mean(
+            [result.executed_action_delta_l2_mean for result in results]
+        ),
         "mean_nearest_distance": _mean([result.nearest_distance_mean for result in results]),
         "mean_clipped_joint_steps": _mean([result.clipped_joint_steps for result in results]),
         "mean_joint_limit_clipped_steps": _mean(
@@ -997,6 +1167,33 @@ def _rate(values) -> float:
 def _mean(values) -> float:
     values = list(values)
     return float(np.mean(values)) if values else 0.0
+
+
+def _gripper_object_distance_from_features(features: np.ndarray) -> float:
+    values = np.asarray(features, dtype=float)
+    indices = [observation_feature_names().index(f"object_minus_ee_{axis}") for axis in "xyz"]
+    return float(np.linalg.norm(values[indices]))
+
+
+def apply_gripper_close_guard(
+    action: np.ndarray,
+    *,
+    enabled: bool,
+    closure_started: bool,
+    gripper_object_distance: float,
+) -> tuple[np.ndarray, bool, bool]:
+    """Optionally suppress premature close without altering later reopen commands."""
+
+    executed = np.asarray(action, dtype=float).copy()
+    if not enabled or closure_started:
+        return executed, False, closure_started
+    raw_close_command = bool(executed[-1] <= PRECLOSE_OPEN_THRESHOLD)
+    if not raw_close_command:
+        return executed, False, False
+    if gripper_object_distance > EARLY_CLOSE_DISTANCE:
+        executed[-1] = 1.0
+        return executed, True, False
+    return executed, False, True
 
 
 def _phase_index(phase: str) -> int:
