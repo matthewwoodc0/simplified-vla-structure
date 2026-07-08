@@ -58,6 +58,12 @@ so the user can understand what happened without reading every diff. Link exact 
 commands, outputs, evidence artifacts, and unresolved risks. Be direct about weak evidence,
 failed tests, skipped checks, and anything that still needs human review.
 
+If the change creates, modifies, or depends on demo videos, rendered previews, screenshots,
+or other visual artifacts, include a dedicated section with openable Markdown links to those
+local files. Generated videos are usually ignored by Git; say that clearly and include the
+exact command to regenerate them. If embedding video is unreliable in Obsidian, provide a
+plain "Open this video:" link or absolute path that the user can click or paste into Finder.
+
 Use this template:
 
 ````markdown
@@ -90,6 +96,11 @@ command that was run
 - Output artifact:
 - What this proves:
 - What it does not prove:
+
+## Demo Videos / Visual Artifacts
+
+- Open this video or visual artifact: `[artifact-name](</absolute/path/to/artifact.mp4>)`.
+- If the artifact is ignored or not committed, include the regeneration command.
 
 ## Decisions Made
 

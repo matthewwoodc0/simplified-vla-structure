@@ -25,6 +25,8 @@ policy comparison is not ready, especially for EE event-order behavior.
 - [ ] `tests/test_vision_dataset.py` and `tests/test_vision_observations.py`: coverage for
   frame alignment, schema validation, hash mismatch detection, protocol hashing, rendering,
   and non-vision demo-loader compatibility.
+- [ ] Demo video links below. These MP4s are generated local artifacts, not committed Git
+  files.
 - [ ] This report and the README/AGENTS/researchnotes updates, because they define the
   current research interpretation.
 
@@ -119,6 +121,30 @@ PYTHONPATH=src .venv/bin/python scripts/render_vision_dataset_preview.py \
 - Output artifact: `/private/tmp/phase6a_vision_smoke_20260708/preview.mp4`.
 - What this proves: the preview script can encode stored RGB frames through ffmpeg.
 - What it does not prove: human visual acceptance; the preview should still be inspected.
+
+## Demo Videos To Open
+
+Generated MP4 previews are ignored by Git, so these are local review links rather than
+committed artifacts.
+
+- Open this Phase 6a sample preview if present:
+  [outputs/phase6a_vision_sample/preview.mp4](</Users/matthewwoodcock/Documents/Simplified VLA Structure/outputs/phase6a_vision_sample/preview.mp4>)
+- Open the smoke-test preview generated during verification:
+  [/private/tmp/phase6a_vision_smoke_20260708/preview.mp4](</private/tmp/phase6a_vision_smoke_20260708/preview.mp4>)
+
+Regenerate the repo-local sample preview with:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/record_pickup_vision_demos.py \
+  --output-dir outputs/phase6a_vision_sample --count 2
+
+PYTHONPATH=src .venv/bin/python scripts/validate_vision_dataset.py \
+  --dataset-dir outputs/phase6a_vision_sample
+
+PYTHONPATH=src .venv/bin/python scripts/render_vision_dataset_preview.py \
+  --dataset-dir outputs/phase6a_vision_sample \
+  --output outputs/phase6a_vision_sample/preview.mp4
+```
 
 ## Decisions Made
 
