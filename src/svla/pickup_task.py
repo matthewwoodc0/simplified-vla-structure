@@ -15,6 +15,7 @@ from svla.controller import (
     _clip_norm,
     _compose_wxyz,
 )
+from svla.vision_observations import FixedCameraConfig, FixedCameraRenderer
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -527,6 +528,24 @@ class PickupTaskEvaluator:
             "gripper_object_contact": bool(self.gripper_object_contact),
             "object_support_contact": bool(self.object_support_contact),
         }
+
+    def get_rgb_observation(
+        self,
+        camera_name: str = "overview",
+        *,
+        width: int = 320,
+        height: int = 240,
+    ) -> np.ndarray:
+        """Render an opt-in fixed-camera RGB frame without changing state observations."""
+
+        renderer = FixedCameraRenderer(
+            self.model,
+            (FixedCameraConfig(name=camera_name, width=width, height=height),),
+        )
+        try:
+            return renderer.render(self.data, camera_name)
+        finally:
+            renderer.close()
 
     def get_success_metrics(self) -> dict:
         lift = float(self.object_position[2] - self._episode_object_start[2])

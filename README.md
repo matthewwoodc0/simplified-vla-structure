@@ -56,8 +56,14 @@ This repo currently has the first simulation/control smoke test:
 - `src/svla/state_bc.py` implements a small numpy-only state behavioral-cloning baseline
   with grouped nearest-neighbor and phase-aware MLP policies plus closed-loop MuJoCo
   rollout evaluation.
+- `src/svla/vision_observations.py` and `src/svla/vision_dataset.py` add fixed-camera RGB
+  observation capture, compact NPZ frame storage, action-space-neutral manifests, and
+  dataset validation for Phase 6a infrastructure.
 - `scripts/run_pickup_trials.py` runs the multi-bucket pickup evaluator and writes JSONL logs.
 - `scripts/record_pickup_demos.py` writes small local scripted demo JSON files and a manifest.
+- `scripts/record_pickup_vision_demos.py`, `scripts/validate_vision_dataset.py`, and
+  `scripts/render_vision_dataset_preview.py` generate, validate, and preview scripted RGB
+  pickup datasets without training a vision policy.
 - `scripts/train_state_bc.py` generates scripted pickup demos, trains joint-delta and
   `ee_tool_delta` state BC policies, rolls them out in the pickup task, and writes
   model/eval artifacts.
@@ -71,8 +77,9 @@ This repo currently has the first simulation/control smoke test:
   task API, demo label alignment, executable policy-label replay, controller quality,
   and BC model loading.
 
-This now includes an initial tabletop pickup benchmark. It is still controller-first:
-there is no VLA logic, no images, no language, and no PyTorch in the pickup path.
+This now includes an initial tabletop pickup benchmark and Phase 6a fixed-camera RGB
+dataset infrastructure. It is still controller-first: there is no trained vision policy,
+no VLA logic, no language, and no PyTorch in the pickup path.
 
 ## How To See It
 
@@ -149,7 +156,26 @@ There are several different things you can run or open. They are not the same fe
    contact/lift/retention metrics, and aligned `joint_delta`, full `ee_delta`, and reduced
    `ee_tool_delta` labels for the same controller trajectory.
 
-5. State-based behavioral cloning:
+5. Phase 6a scripted RGB dataset export:
+
+   ```bash
+   PYTHONPATH=src .venv/bin/python scripts/record_pickup_vision_demos.py \
+     --output-dir outputs/phase6a_vision_sample --count 2
+
+   PYTHONPATH=src .venv/bin/python scripts/validate_vision_dataset.py \
+     --dataset-dir outputs/phase6a_vision_sample
+
+   PYTHONPATH=src .venv/bin/python scripts/render_vision_dataset_preview.py \
+     --dataset-dir outputs/phase6a_vision_sample \
+     --output outputs/phase6a_vision_sample/preview.mp4
+   ```
+
+   This writes JSON demos plus per-episode `*.npz` RGB frame arrays and a
+   `vision_manifest.json` that maps episode/step indices to frames, state observations,
+   policy labels, task metrics, object pose, camera config, source hashes, and protocol SHA.
+   It does not train or evaluate a vision policy.
+
+6. State-based behavioral cloning:
 
    ```bash
    python scripts/train_state_bc.py
@@ -168,7 +194,7 @@ There are several different things you can run or open. They are not the same fe
    action-space execution, and simulator rollout evaluation are wired correctly. It is not
    evidence of generalization.
 
-6. Rendered toy training rollout:
+7. Rendered toy training rollout:
 
    ```bash
    python scripts/train_reach_policy.py
@@ -287,7 +313,7 @@ Phase 4 - Dataset generation
   Current output:
     - `scripts/record_pickup_demos.py`,
     - `outputs/scripted_pickup_demos/manifest.json`,
-    - `svla_pickup_demo_v2_grasp_tcp` JSON demos with observations, joint-delta labels, full
+    - `svla_pickup_demo_v3_physics_audit` JSON demos with observations, joint-delta labels, full
       EE labels, reduced tool-axis labels, controller telemetry, collision-free approach
       metrics, and success metrics.
   Exit condition met at sample scale:
@@ -296,8 +322,8 @@ Phase 4 - Dataset generation
 Phase 5 - State-based behavioral cloning
   Goal: answer the action-space question without vision/language noise.
   Status: implemented. The scripted simulator/task gate is closed; the learned-policy
-  comparison remains blocked. Phase 6 vision infrastructure is permitted but Prompts 10–11
-  and all vision implementation were explicitly not started in this sweep.
+  comparison remains blocked. Phase 6a vision infrastructure is implemented, but
+  vision-conditioned BC, language, and VLA work remain blocked/not started.
   Current output:
     - `src/svla/state_bc.py`, `scripts/train_state_bc.py`,
     - executable `policy_labels` in pickup and pick-place demos,
@@ -346,7 +372,7 @@ Phase 5 - State-based behavioral cloning
     - left placement uses separate goal/command markers for asymmetric-jaw transport slip;
       one nominal regression test supports the compensation, not a general success-rate claim.
   Readiness verdict (details in `AGENTS.md`):
-    - Phase 6 infrastructure is permitted but was not started,
+    - Phase 6a infrastructure is implemented as data/render/validation plumbing only,
     - vision-conditioned BC / VLA blocked until EE pickup event-order improves or joint-only
       comparison is accepted,
     - language/VLA blocked until BC validates multiple instruction-distinct behaviors.
@@ -354,13 +380,26 @@ Phase 5 - State-based behavioral cloning
     - scripted place-left and place-right validated; BC on pick-place variants not started,
     - verify state BC on each behavior variant before language conditioning.
 
-Phase 6 - Vision policy
-  Goal: add camera observations after the action-space result is measurable.
-  Status: not started; Prompts 10–11 were held after the Phase-5 environment/evidence sweep.
-  Needed work:
-    - add fixed-camera RGB observations to the same deterministic demonstrations,
-    - freeze the controller, action definitions, train/final starts, seeds, and success
-      metrics from Phase 5,
+Phase 6 - Vision infrastructure and later policy
+  Goal: add fixed-camera observations without changing the controller/action contract, then
+  separately decide whether a vision policy is justified.
+  Status: Phase 6a infrastructure implemented; Phase 6b vision-conditioned BC and VLA are
+  not started and remain blocked by the learned-policy comparison.
+  Current Phase 6a output:
+    - opt-in fixed-camera RGB rendering on the pickup task,
+    - named camera config with resolution, uint8 dtype, metadata, and deterministic MuJoCo
+      Renderer settings,
+    - scripted pickup RGB datasets with JSON demos plus NPZ frame arrays rather than large
+      RGB blobs inside demo rows,
+    - one shared scripted trajectory source carrying `joint_delta`, `ee_delta`, and
+      `ee_tool_delta` labels with identical observations, starts, task metadata, and
+      success metrics,
+    - validation for frame count alignment, RGB shape/dtype, camera names, manifest schema,
+      per-step label alignment, task gates, and non-vision demo loader compatibility,
+    - MP4 preview rendering from stored frames.
+  Needed before Phase 6b:
+    - freeze the policy architecture, temporal/gripper contract, train/final starts, seeds,
+      and success metrics from Phase 5,
     - treat any pre-close contact or more than 1 mm of pre-close object displacement as a
       failed rollout,
     - train the same small vision encoder capacity for joint delta and `ee_tool_delta`,
@@ -389,8 +428,8 @@ Phase 8 - Unity / Isaac branches, if justified
     - not the first local path on this Mac.
 ```
 
-Phase 6 vision infrastructure remains a permitted future step, but it was not started in this
-sweep. The immediate research priority is to make the registered state-policy comparison
+Phase 6a vision infrastructure is now present as recording, validation, and preview plumbing.
+The immediate research priority is still to make the registered state-policy comparison
 stable before vision-conditioned training. See `AGENTS.md` for the full end-of-Phase-5
 ladder, evidence paths, and pick-place notes.
 

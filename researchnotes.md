@@ -40,6 +40,7 @@ primary outputs. Format: `svla_experiment_manifest_v1`. Audit workflow is docume
 | `scripts/validate_action_replay.py` | `outputs/action_replay_tool_axis_summary.json` | `outputs/action_replay_tool_axis_summary.manifest.json` |
 | `scripts/validate_task_robustness.py` | `outputs/task_robustness_summary.json` | `outputs/task_robustness_summary.manifest.json` |
 | `scripts/train_state_bc.py` | `outputs/state_bc/state_bc_summary.json` | `outputs/state_bc/state_bc_summary.manifest.json` |
+| `scripts/record_pickup_vision_demos.py` | `outputs/phase6a_vision_sample/vision_manifest.json` | `outputs/phase6a_vision_sample/vision_manifest.manifest.json` |
 
 Each manifest records: UTC timestamp, exact command, git SHA, dirty flag, diff SHA-256 when
 dirty, untracked-file identities when present, Python/MuJoCo/NumPy/SciPy versions, SHA-256
@@ -234,6 +235,7 @@ gripper objective, and select them on validation.
 | 2026-07-02 | H-EE-011 / H-JNT-001 | Shielded distance-guard final diagnostic using byte-identical models | **Rejected** — EE unchanged at 28/120 and 38/120 event order; joint 55/120, only +4 successes, with physical sanity down 80→76 | `evidence/phase5_v2_final_results.json` |
 | 2026-07-02 | H-EE-002 | Registered raw-final correlation analysis | **Partial** — EE saturation weakly inversely associated with event and rollout failure; causal gain/cap ablation remains untested | `outputs/phase5_v2_final_selected_legacy/eval/policy_failure_analysis.json` |
 | 2026-07-02 | — | Final source-matched scripted/replay/readiness bundle | **Pass** — 85 tests; pickup 36/36; pickup replay 18/18 per space; pick-place 6/6; pick-place replay 6/6 per space; readiness 288/288 | `outputs/phase5_baseline_final/phase5_baseline_v2_aggregate.json` |
+| 2026-07-08 | — | Phase 6a scripted RGB dataset infrastructure | **Implemented, not policy evidence** — fixed-camera RGB capture, NPZ frame arrays, action-space-neutral manifests, validator, MP4 preview path, and compatibility tests pass; no vision policy or VLA training started | `outputs/phase6a_vision_sample/vision_manifest.json` |
 
 *(Add a row when you run a hypothesis test — do not infer from loss curves alone.)*
 
@@ -279,8 +281,9 @@ Phase 6 risk: bolting RGB onto the **same** `(state, cursor, phase) → action` 
 clock problem; cameras become extra dims while gripper timing stays tied to demo step count.
 
 H-EE-012 shows that simply retraining the current MLP without cursor features is not enough.
-Any future vision experiment needs a newly justified temporal/gripper contract rather than
-assuming RGB plus cursor removal is a fix. **No Phase-6 vision work was started in this sweep.**
+Any future vision-policy experiment needs a newly justified temporal/gripper contract rather
+than assuming RGB plus cursor removal is a fix. **Phase 6a data/render/validation plumbing is
+implemented; Phase 6b learned vision policy and VLA work are not started.**
 
 | ID | Status | Claim | Test | Result |
 |----|--------|-------|------|--------|
