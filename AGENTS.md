@@ -37,6 +37,102 @@ hypothesis changes a verdict, blocker, or recommended next step.
 5. If the phase verdict moves (e.g. EE BC unblocked, Phase 6b policy training GO), add one
    dated bullet under **Research verdict updates** below.
 
+## Large-change review reports
+
+After every **big or large implementation/change**, generate a Markdown review report for
+the user to read in Obsidian. This is required when the work changes architecture, research
+verdicts, experiment protocol, data format, task/controller behavior, training/evaluation
+logic, or multiple files in a way that future agents need to understand.
+
+Small bug fixes or one-line cleanups do not need a report unless they change a gate,
+verdict, artifact contract, or user-facing workflow.
+
+Write reports under `reports/` using:
+
+```text
+reports/YYYY-MM-DD-short-change-name.md
+```
+
+The report must be detailed enough to audit the change later, but written in plain language
+so the user can understand what happened without reading every diff. Link exact files,
+commands, outputs, evidence artifacts, and unresolved risks. Be direct about weak evidence,
+failed tests, skipped checks, and anything that still needs human review.
+
+If the change creates, modifies, or depends on demo videos, rendered previews, screenshots,
+or other visual artifacts, include a dedicated section with openable Markdown links to those
+local files. Generated videos are usually ignored by Git; say that clearly and include the
+exact command to regenerate them. If embedding video is unreliable in Obsidian, provide a
+plain "Open this video:" link or absolute path that the user can click or paste into Finder.
+
+Use this template:
+
+````markdown
+# YYYY-MM-DD - Short Change Name
+
+## Plain-English Summary
+
+What changed, why it changed, and what the user should understand first.
+
+## What To Review
+
+- [ ] File or artifact: what changed and why it matters.
+- [ ] File or artifact: what changed and why it matters.
+- [ ] Evidence output, video, dataset, or report the user should inspect.
+
+## Implementation Details
+
+Describe the important technical changes. Keep this explainable: name the modules,
+contracts, data shapes, controller/task behavior, or experiment logic that changed.
+
+## Evidence And Verification
+
+List the commands that were run and their outcomes.
+
+```bash
+command that was run
+```
+
+- Result:
+- Output artifact:
+- What this proves:
+- What it does not prove:
+
+## Demo Videos / Visual Artifacts
+
+- Open this video or visual artifact: `[artifact-name](</absolute/path/to/artifact.mp4>)`.
+- If the artifact is ignored or not committed, include the regeneration command.
+
+## Decisions Made
+
+- Decision:
+  Reason:
+- Decision:
+  Reason:
+
+## Risks And Limitations
+
+- Risk or limitation:
+  Why it matters:
+- Risk or limitation:
+  Why it matters:
+
+## Action Items
+
+- [ ] Next concrete action for the user or future agent.
+- [ ] Follow-up test, visual review, experiment, or cleanup.
+- [ ] Documentation/researchnotes update if needed.
+
+## Files Changed
+
+- `path/to/file.py` - short reason.
+- `path/to/other_file.md` - short reason.
+
+## Current Verdict
+
+State the honest status after the change: ready, blocked, partial, diagnostic only, or
+needs review. Do not overclaim from passing tests alone.
+````
+
 ### Research verdict updates
 
 - **2026-07-01:** Historical legacy-grid EE event misordering documented (15/72 vs joint
@@ -54,25 +150,31 @@ hypothesis changes a verdict, blocker, or recommended next step.
 - **2026-07-02:** The separately labeled distance-guard diagnostic left EE unchanged at
   28/120 and moved joint only from 51/120 to 55/120. **H-EE-011 and H-JNT-001 rejected.**
   Evidence: `evidence/phase5_v2_final_results.json`.
+- **2026-07-08:** **Phase 6a vision infrastructure implemented** — fixed-camera RGB
+  capture, scripted pickup RGB dataset export, manifest validation, and MP4 preview
+  plumbing are present. This does not change the Phase 5 evidence ladder and does not open
+  Phase 6b policy/VLA work.
 
 ## YOU ARE HERE
 
-**Working branch:** `cursor/phase5-repair` — all implementation and experiments happen here.
+**Working branch:** `codex/phase6a-vision-infra` — all Phase 6a implementation and
+experiments happen here.
 Do not edit `main` directly unless explicitly merging or cherry-picking a release.
 
-**Current phase:** End of Phase 5. The scripted simulator/task physics gate is **closed**;
-the learned-policy comparison gate remains **open/blocked**.
+**Current phase:** Phase 6a infrastructure is implemented on top of the closed scripted
+simulator/task gate. The learned-policy comparison gate remains **open/blocked**, and
+Phase 6b vision-conditioned policy/VLA work is **not started**.
 
-Phases 1–5 are built: MuJoCo SO-101 arm, damped-least-squares IK controller, action-space
-adapters, table/cube pickup task, scripted demonstrations, and state-based BC comparison.
+Phases 1–5 plus Phase 6a infrastructure are built: MuJoCo SO-101 arm, damped-least-squares
+IK controller, action-space adapters, table/cube pickup task, scripted demonstrations,
+state-based BC comparison, and fixed-camera RGB dataset plumbing.
 A pre-Phase-6 physics audit fixed contact model bugs, added force/impulse/disturbance
 telemetry and conservative success gates, stress-tested geometry/friction, and retrained BC
 under corrected physics.
 
-Vision-only infrastructure is permitted by the scripted gate, but **Prompts 10–11 and all
-Phase-6 vision implementation have not started in this sweep**. Do not start
+Vision-only infrastructure is now present as data/render/validation plumbing. Do not start
 vision-conditioned policy training or VLA work until the research comparison action spaces
-are in an acceptable state (see verdict).
+are in an acceptable state or the scope is explicitly changed (see verdict).
 
 ## Current Implementation State
 
@@ -84,9 +186,13 @@ Core modules:
 - `src/svla/pickup_task.py`: pickup + pick-place evaluator with physics-audit telemetry and gates.
 - `src/svla/pick_place_replay.py`: action replay with grasp-segment boundary from demo metadata.
 - `src/svla/state_bc.py`, `src/svla/demo_recorder.py`: demonstration recording and BC.
+- `src/svla/vision_observations.py`, `src/svla/vision_dataset.py`: fixed-camera RGB
+  observation capture, compact NPZ frame datasets, and manifest validation.
 - `scripts/validate_task_robustness.py`: readiness vs broad domain stress tests.
 - `scripts/run_pick_place_trials.py`, `scripts/record_pick_place_demo.py`: pick-place matrix and demo export.
 - `scripts/render_pickup_showcase.py`, `scripts/render_bc_rollout.py`: MP4 visual review.
+- `scripts/record_pickup_vision_demos.py`, `scripts/validate_vision_dataset.py`,
+  `scripts/render_vision_dataset_preview.py`: Phase 6a dataset, validation, and preview tools.
 
 Pickup success requires all of: collision-free approach, valid event order, physical sanity
 (force/impulse/disturbance limits), contact, lift, and retention — not geometry alone.
@@ -259,7 +365,7 @@ scripted/replay/readiness claims.
 | Raw learned-policy comparison | **NOT READY** — joint 51/120, EE 28/120; both fail the proposed success, event-order, physical-sanity, hard-limit, and per-seed gates |
 | Shielded distance-guard diagnostic | **REJECTED as a fix** — EE unchanged; joint +4/120. Shielded numbers never replace the raw ladder |
 | Hardware realism | **NOT ASSESSED** — force/impulse thresholds are MuJoCo sanity limits, not calibrated hardware limits |
-| Phase 6a vision infrastructure | **PERMITTED BUT NOT STARTED** — Prompts 10–11 were explicitly held |
+| Phase 6a vision infrastructure | **IMPLEMENTED AS PLUMBING ONLY** — fixed-camera RGB capture, scripted dataset export, validation, and preview are available |
 | Phase 6b vision-conditioned BC / VLA | **BLOCKED** until the action-space comparison is viable or scope is explicitly changed |
 
 **Controller vs simulator vs ML:** kN forces were a **simulator/contact-model bug** (invalid
@@ -316,10 +422,10 @@ for MP4 export.
 
 ## Next Useful Work
 
-Phase 6 vision infrastructure (permitted later; **not started in this sweep**):
+Phase 6a vision infrastructure follow-up:
 
-- Add fixed camera observations to `pickup_task.py` / demo recorder.
-- Render vision datasets from scripted demos in readiness domain only.
+- Keep fixed camera observations and scripted RGB datasets in the readiness domain only.
+- Do not store large RGB arrays in JSON demo rows; keep NPZ frames plus manifests.
 - Keep BC comparison on joint-delta until EE event-order failures are addressed.
 
 Phase 5 follow-up (not blocking vision infra):
