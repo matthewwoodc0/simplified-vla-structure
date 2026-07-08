@@ -33,9 +33,7 @@ policy comparison is not ready, especially for EE event-order behavior.
 ## Implementation Details
 
 `FixedCameraConfig` defines named RGB camera outputs as uint8 arrays shaped
-`[height, width, 3]`. `FixedCameraRenderer` owns MuJoCo renderer objects and returns copied
-frames so callers do not retain mutable renderer-owned buffers. `PickupTaskEvaluator` now
-has an opt-in `get_rgb_observation()` helper; ordinary state observations are not changed.
+`[height, width, 3]`. `FixedCameraRenderer` owns MuJoCo renderer objects and returns copied frames so callers do not retain mutable renderer-owned buffers. `PickupTaskEvaluator` now has an opt-in `get_rgb_observation()` helper; ordinary state observations are not changed.
 
 `record_pickup_vision_dataset()` records the existing scripted pickup demo, replays the same
 scripted controller sequence to capture fixed-camera frames, and stores the frames in
@@ -178,13 +176,12 @@ PYTHONPATH=src .venv/bin/python scripts/render_vision_dataset_preview.py \
 
 ## Action Items
 
-- [ ] User should review this report before any merge to `main`.
-- [ ] Review a generated MP4 preview from a representative dataset before treating Phase 6a
+- [x] User should review this report before any merge to `main`.
+- [x] Review a generated MP4 preview from a representative dataset before treating Phase 6a
   artifacts as visually acceptable.
-- [ ] Keep Phase 6b blocked until the action-space comparison is viable or scope is
+- [x] Keep Phase 6b blocked until the action-space comparison is viable or scope is
   explicitly changed.
-- [ ] If vision policy work is later authorized, define the temporal/gripper contract before
-  training rather than assuming RGB fixes current BC event-order failures.
+- [ ] If vision policy work is later authorized, define the temporal/gripper contract before training rather than assuming RGB fixes current BC event-order failures.
 
 ## Files Changed
 
