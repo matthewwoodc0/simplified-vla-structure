@@ -1,0 +1,25 @@
+{
+  "format": "svla_experiment_config_v1",
+  "name": "h_ee_013_env_phase_validation",
+  "hypothesis": "H-EE-013",
+  "status": "rejected",
+  "entrypoint": "scripts/train_state_bc.py",
+  "arguments": {
+    "output-dir": "outputs/h_ee_013_env_phase_validation",
+    "evaluation-protocol": "v2",
+    "eval-split": "validation",
+    "temporal-feature-mode": "env_derived_phase",
+    "policy-type": "mlp",
+    "seeds": [0, 1, 2, 3, 4],
+    "hidden-sizes": [128, 128],
+    "epochs": 300,
+    "batch-size": 1024,
+    "learning-rate": 0.001,
+    "weight-decay": 0.00001,
+    "stride": 1,
+    "max-steps": 3200,
+    "action-gain": 1.0,
+    "label-source": "policy_labels"
+  },
+  "evidence": ["outputs/h_ee_013_env_phase_validation/state_bc_summary.json"]
+}

@@ -1,20 +1,18 @@
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SCRATCH = Path(
-    "/var/folders/mb/m6lhl87s0nq4syphbmj2q7x40000gn/T/grok-goal-fde8efd9360f/implementer"
-)
+DEFAULT_SCRATCH = PROJECT_ROOT / "outputs" / "pick_place_vplan_evidence"
 PYTHON = [str(PROJECT_ROOT / ".venv/bin/python")]
 ENV = {"PYTHONPATH": str(PROJECT_ROOT / "src")}
 
 
 def run_logged(command: list[str], log_path: Path) -> None:
-    rendered = " ".join(command)
     proc = subprocess.run(
         command,
         cwd=PROJECT_ROOT,
@@ -51,13 +49,26 @@ def write_controller_note(compare_path: Path, note_path: Path) -> None:
     note_path.write_text("\n".join(lines[:15]) + "\n", encoding="utf-8")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--scratch-dir",
+        type=Path,
+        default=DEFAULT_SCRATCH,
+        help="Directory for logs and copied evidence summaries.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
-    SCRATCH.mkdir(parents=True, exist_ok=True)
+    args = parse_args()
+    scratch = args.scratch_dir.resolve()
+    scratch.mkdir(parents=True, exist_ok=True)
     compare_path = PROJECT_ROOT / "outputs" / "action_replay_pick_place_compare.json"
 
     run_logged(
         PYTHON + ["-m", "pytest", "tests/test_pickup_task.py", "tests/test_demo_recorder.py", "-q"],
-        SCRATCH / "pickup_regression.log",
+        scratch / "pickup_regression.log",
     )
     run_logged(
         PYTHON
@@ -68,7 +79,7 @@ def main() -> None:
             "tests/test_pick_place_replay.py",
             "-q",
         ],
-        SCRATCH / "pick_place_regression.log",
+        scratch / "pick_place_regression.log",
     )
     run_logged(
         PYTHON
@@ -77,7 +88,7 @@ def main() -> None:
             "--output",
             str(PROJECT_ROOT / "outputs/pick_place_trials.jsonl"),
         ],
-        SCRATCH / "pick_place_trials.log",
+        scratch / "pick_place_trials.log",
     )
     run_logged(
         PYTHON
@@ -86,7 +97,7 @@ def main() -> None:
             "--output",
             str(PROJECT_ROOT / "outputs/pick_place_demo_center_to_right.json"),
         ],
-        SCRATCH / "pick_place_demo.log",
+        scratch / "pick_place_demo.log",
     )
     run_logged(
         PYTHON
@@ -97,9 +108,9 @@ def main() -> None:
             "--output",
             str(compare_path),
         ],
-        SCRATCH / "replay_saturation.log",
+        scratch / "replay_saturation.log",
     )
-    (SCRATCH / "replay_saturation_summary.json").write_text(
+    (scratch / "replay_saturation_summary.json").write_text(
         compare_path.read_text(encoding="utf-8"),
         encoding="utf-8",
     )
@@ -112,10 +123,10 @@ def main() -> None:
             "--output",
             str(PROJECT_ROOT / "outputs/task_robustness_readiness_summary.json"),
         ],
-        SCRATCH / "readiness.log",
+        scratch / "readiness.log",
     )
-    write_controller_note(compare_path, SCRATCH / "controller_note.txt")
-    print(f"wrote evidence under {SCRATCH}")
+    write_controller_note(compare_path, scratch / "controller_note.txt")
+    print(f"wrote evidence under {scratch}")
 
 
 if __name__ == "__main__":

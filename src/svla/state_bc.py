@@ -6,6 +6,15 @@ import json
 
 import numpy as np
 
+from svla.core.action_space import (
+    ACTION_REPRESENTATIONS,
+    COMPARISON_ACTION_SPACES,
+    get_action_representation,
+)
+from svla.loss_profiles import (
+    CLOSE_TIMING_PHASES as PROFILE_CLOSE_TIMING_PHASES,
+    resolve_loss_weights,
+)
 from svla.pickup_task import (
     EARLY_CLOSE_DISTANCE,
     LIFT_CLEARANCE,
@@ -17,8 +26,10 @@ from svla.pickup_task import (
 )
 
 
-ACTION_SPACE_SIZES = {"joint_delta": 6, "ee_delta": 7, "ee_tool_delta": 6}
-ACTION_SPACES = {name: ACTION_SPACE_SIZES[name] for name in ("joint_delta", "ee_tool_delta")}
+ACTION_SPACE_SIZES = {
+    name: representation.size for name, representation in ACTION_REPRESENTATIONS.items()
+}
+ACTION_SPACES = {name: ACTION_SPACE_SIZES[name] for name in COMPARISON_ACTION_SPACES}
 APPROACH_LABELS = ("vertical_pregrasp", "high_staged_vertical_pregrasp")
 PHASE_LABELS = (
     "approach_0",
@@ -30,7 +41,69 @@ PHASE_LABELS = (
     "hold",
 )
 TEMPORAL_FEATURE_MODES = ("legacy_progress_phase", "none", "env_derived_phase")
+# Object pose + contact/lift only (historical NN match contract). Not object_minus_ee_*.
 MATCH_FEATURE_INDICES = np.array([18, 19, 20, 28, 29, 30], dtype=int)
+MATCH_FEATURE_NAMES = (
+    "object_x",
+    "object_y",
+    "object_z",
+    "object_lift_from_start",
+    "gripper_object_contact",
+    "object_support_contact",
+)
+# Named secondary match contracts (H-EE-022). Default remains historical.
+# Indices refer to observation_feature_names() base features.
+MATCH_CONTRACT_HISTORICAL = "historical"
+MATCH_CONTRACT_RELATIVE_EE = "match_relative_ee"
+MATCH_CONTRACTS: dict[str, dict[str, list[str] | list[int]]] = {
+    MATCH_CONTRACT_HISTORICAL: {
+        "indices": [18, 19, 20, 28, 29, 30],
+        "names": list(MATCH_FEATURE_NAMES),
+    },
+    # Relative EE–object + gripper_open + contact/lift (no absolute object xyz).
+    MATCH_CONTRACT_RELATIVE_EE: {
+        "indices": [17, 25, 26, 27, 28, 29, 30],
+        "names": [
+            "gripper_open",
+            "object_minus_ee_x",
+            "object_minus_ee_y",
+            "object_minus_ee_z",
+            "object_lift_from_start",
+            "gripper_object_contact",
+            "object_support_contact",
+        ],
+    },
+}
+MATCH_CONTRACT_NAMES = tuple(MATCH_CONTRACTS.keys())
+DEFAULT_MATCH_CONTRACT = MATCH_CONTRACT_HISTORICAL
+HYBRID_POLICY_TYPE = "hybrid_nn_gripper_mlp"
+HYBRID_RECIPE_A1 = "A1_compositor"
+HYBRID_RECIPE_A2 = "A2_arm_only_mlp"
+
+
+def resolve_match_contract(
+    match_contract: str = DEFAULT_MATCH_CONTRACT,
+) -> tuple[np.ndarray, list[str]]:
+    """Resolve a named NN match contract to indices + names.
+
+    Historical remains the default for comparability. Secondary contracts (e.g.
+    match_relative_ee for H-EE-022) must be selected explicitly by name.
+    """
+
+    if match_contract not in MATCH_CONTRACTS:
+        raise ValueError(
+            f"unknown match contract {match_contract!r}; "
+            f"known: {list(MATCH_CONTRACTS)}"
+        )
+    contract = MATCH_CONTRACTS[match_contract]
+    indices = np.asarray(contract["indices"], dtype=int)
+    names = [str(name) for name in contract["names"]]
+    if len(indices) != len(names):
+        raise ValueError(
+            f"match contract {match_contract!r} has len(indices)={len(indices)} "
+            f"!= len(names)={len(names)}"
+        )
+    return indices, names
 
 # Env-derived phase thresholds (meters / gripper-open fraction). Tuned against
 # scripted pickup demos so distance/contact/lift bins recover a monotonic
@@ -157,6 +230,13 @@ class PolicyTrialResult:
     action_delta_l2_mean: float
     nearest_distance_mean: float
     nearest_distance_max: float
+    # Compact rollout diagnosis (event timing; does not change control).
+    close_start_distance: float | None
+    first_close_time: float | None
+    first_contact_time: float | None
+    first_unsupported_time: float | None
+    first_lift_time: float | None
+    gripper_command_flips: int
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -182,6 +262,9 @@ class NearestNeighborBCPolicy:
         temperature: float = 0.75,
         evaluation_config_hash: str = "",
         evaluation_protocol_version: int = 0,
+        match_feature_indices: np.ndarray | None = None,
+        match_feature_names: list[str] | tuple[str, ...] | None = None,
+        match_contract: str = DEFAULT_MATCH_CONTRACT,
     ) -> None:
         if action_space not in ACTION_SPACE_SIZES:
             raise ValueError(f"unknown action space: {action_space}")
@@ -200,7 +283,48 @@ class NearestNeighborBCPolicy:
         self.temperature = float(temperature)
         self.evaluation_config_hash = str(evaluation_config_hash)
         self.evaluation_protocol_version = int(evaluation_protocol_version)
+        self.match_contract = str(match_contract)
+        if match_feature_indices is None:
+            default_indices, default_names = resolve_match_contract(DEFAULT_MATCH_CONTRACT)
+            self.match_feature_indices = default_indices.copy()
+            self.match_feature_names = list(default_names)
+        else:
+            self.match_feature_indices = np.asarray(match_feature_indices, dtype=int).copy()
+            if match_feature_names is None:
+                # Best-effort names from observation features when possible.
+                base_names = observation_feature_names()
+                self.match_feature_names = [
+                    base_names[i] if 0 <= int(i) < len(base_names) else f"feature_{int(i)}"
+                    for i in self.match_feature_indices
+                ]
+            else:
+                self.match_feature_names = [str(name) for name in match_feature_names]
         self._group_index = {key: index for index, key in enumerate(group_keys)}
+
+    def set_match_contract(
+        self,
+        match_contract: str,
+        *,
+        match_feature_indices: np.ndarray | None = None,
+        match_feature_names: list[str] | tuple[str, ...] | None = None,
+    ) -> None:
+        """Switch NN retrieval features without re-fitting the bank."""
+
+        if match_feature_indices is None:
+            indices, names = resolve_match_contract(match_contract)
+        else:
+            indices = np.asarray(match_feature_indices, dtype=int)
+            if match_feature_names is None:
+                base_names = observation_feature_names()
+                names = [
+                    base_names[i] if 0 <= int(i) < len(base_names) else f"feature_{int(i)}"
+                    for i in indices
+                ]
+            else:
+                names = [str(name) for name in match_feature_names]
+        self.match_contract = str(match_contract)
+        self.match_feature_indices = np.asarray(indices, dtype=int).copy()
+        self.match_feature_names = list(names)
 
     def predict(self, observation_features: np.ndarray, group_key: str) -> tuple[np.ndarray, float]:
         action, distance, _ = self.predict_with_index(observation_features, group_key)
@@ -233,8 +357,9 @@ class NearestNeighborBCPolicy:
             candidate_indices = start + local_candidates
         else:
             candidate_indices = np.arange(start, end)
-        query = self._standardize(observation_features)[MATCH_FEATURE_INDICES]
-        group_features = self.features[candidate_indices][:, MATCH_FEATURE_INDICES]
+        match_idx = self.match_feature_indices
+        query = self._standardize(observation_features)[match_idx]
+        group_features = self.features[candidate_indices][:, match_idx]
         distances = np.linalg.norm(group_features - query, axis=1)
         k = min(self.k, len(distances))
         nearest = np.argpartition(distances, k - 1)[:k]
@@ -267,6 +392,9 @@ class NearestNeighborBCPolicy:
             temperature=np.array(self.temperature),
             evaluation_config_hash=np.array(self.evaluation_config_hash),
             evaluation_protocol_version=np.array(self.evaluation_protocol_version),
+            match_feature_indices=np.asarray(self.match_feature_indices, dtype=int),
+            match_feature_names=np.asarray(self.match_feature_names),
+            match_contract=np.array(self.match_contract),
         )
 
     def _standardize(self, features: np.ndarray) -> np.ndarray:
@@ -435,7 +563,213 @@ class MLPBCPolicy:
         return len(PHASE_LABELS) - 1, 1.0
 
 
-def load_policy(path: Path) -> NearestNeighborBCPolicy | MLPBCPolicy:
+class HybridNNGripperMLPPolicy:
+    """H-EE-014 compositor: MLP arm deltas + nearest-neighbor gripper command.
+
+    Training is unchanged (MLP fit + NN fit on the same demos) unless A2
+    arm-only MLP loss is selected (H-EE-023). At prediction time only the
+    gripper dimension is taken from the NN policy so the arm retains MLP
+    generalization while gripper timing uses state-local demo labels. Cursor
+    advancement follows the MLP open-loop index so the hybrid does not
+    silently change the temporal feature contract.
+    """
+
+    def __init__(
+        self,
+        mlp: MLPBCPolicy,
+        nn: NearestNeighborBCPolicy,
+        *,
+        gripper_dim: int = -1,
+        match_feature_indices: np.ndarray | None = None,
+        match_feature_names: list[str] | tuple[str, ...] | None = None,
+        match_contract: str = DEFAULT_MATCH_CONTRACT,
+        recipe: str = HYBRID_RECIPE_A1,
+        arm_only_mlp: bool = False,
+    ) -> None:
+        if mlp.action_space != nn.action_space:
+            raise ValueError(
+                "hybrid policy requires matching action spaces; "
+                f"got mlp={mlp.action_space!r} nn={nn.action_space!r}"
+            )
+        self.mlp = mlp
+        self.nn = nn
+        self.action_space = mlp.action_space
+        self.gripper_dim = int(gripper_dim)
+        self.match_contract = str(match_contract)
+        self.recipe = str(recipe)
+        self.arm_only_mlp = bool(arm_only_mlp)
+        if match_feature_indices is None:
+            indices, names = resolve_match_contract(self.match_contract)
+            self.match_feature_indices = indices.copy()
+            self.match_feature_names = list(names)
+        else:
+            self.match_feature_indices = np.asarray(match_feature_indices, dtype=int).copy()
+            if match_feature_names is None:
+                base_names = observation_feature_names()
+                self.match_feature_names = [
+                    base_names[i] if 0 <= int(i) < len(base_names) else f"feature_{int(i)}"
+                    for i in self.match_feature_indices
+                ]
+            else:
+                self.match_feature_names = [str(name) for name in match_feature_names]
+        # Keep NN retrieval aligned with the hybrid match contract at predict time.
+        self.nn.set_match_contract(
+            self.match_contract,
+            match_feature_indices=self.match_feature_indices,
+            match_feature_names=self.match_feature_names,
+        )
+        # Availability for eval uses the MLP group keys (same demos as NN fit).
+        self.group_keys = list(mlp.group_keys)
+
+    def set_match_contract(self, match_contract: str) -> None:
+        """Apply a named secondary match contract without retraining."""
+
+        indices, names = resolve_match_contract(match_contract)
+        self.match_contract = str(match_contract)
+        self.match_feature_indices = indices.copy()
+        self.match_feature_names = list(names)
+        self.nn.set_match_contract(
+            self.match_contract,
+            match_feature_indices=self.match_feature_indices,
+            match_feature_names=self.match_feature_names,
+        )
+
+    @property
+    def evaluation_config_hash(self) -> str:
+        return str(self.mlp.evaluation_config_hash)
+
+    @evaluation_config_hash.setter
+    def evaluation_config_hash(self, value: str) -> None:
+        self.mlp.evaluation_config_hash = str(value)
+        self.nn.evaluation_config_hash = str(value)
+
+    @property
+    def evaluation_protocol_version(self) -> int:
+        return int(self.mlp.evaluation_protocol_version)
+
+    @evaluation_protocol_version.setter
+    def evaluation_protocol_version(self, value: int) -> None:
+        self.mlp.evaluation_protocol_version = int(value)
+        self.nn.evaluation_protocol_version = int(value)
+
+    def predict(
+        self, observation_features: np.ndarray, group_key: str
+    ) -> tuple[np.ndarray, float]:
+        action, distance, _ = self.predict_with_index(observation_features, group_key)
+        return action, distance
+
+    def predict_with_index(
+        self,
+        observation_features: np.ndarray,
+        group_key: str,
+        cursor: int | None = None,
+        search_window: int | None = None,
+    ) -> tuple[np.ndarray, float, int]:
+        a_mlp, _, mlp_index = self.mlp.predict_with_index(
+            observation_features,
+            group_key,
+            cursor=cursor,
+            search_window=search_window,
+        )
+        a_nn, nn_distance, _nn_index = self.nn.predict_with_index(
+            observation_features,
+            group_key,
+            cursor=cursor,
+            search_window=search_window,
+        )
+        action = np.asarray(a_mlp, dtype=float).copy()
+        nn_action = np.asarray(a_nn, dtype=float)
+        if action.ndim != 1 or nn_action.ndim != 1:
+            raise ValueError("hybrid actions must be 1-D vectors")
+        if action.shape != nn_action.shape:
+            raise ValueError(
+                f"hybrid action shape mismatch: mlp={action.shape} nn={nn_action.shape}"
+            )
+        action[self.gripper_dim] = float(nn_action[self.gripper_dim])
+        # Report NN distance for diagnosis; keep MLP cursor for open-loop advance.
+        return action, float(nn_distance), int(mlp_index)
+
+    def save(self, path: Path) -> Path:
+        """Save MLP npz, NN npz, and a JSON hybrid manifest. Returns manifest path."""
+
+        path = Path(path)
+        if path.suffix == ".npz":
+            path = path.with_suffix(".json")
+        elif path.suffix != ".json":
+            path = path.with_name(path.name + ".json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        mlp_path = path.parent / f"{path.stem}_mlp_component.npz"
+        nn_path = path.parent / f"{path.stem}_nn_component.npz"
+        self.mlp.save(mlp_path)
+        self.nn.save(nn_path)
+        manifest = {
+            "format": "svla_hybrid_nn_gripper_mlp_manifest_v1",
+            "policy_type": HYBRID_POLICY_TYPE,
+            "action_space": self.action_space,
+            "gripper_dim": self.gripper_dim,
+            "mlp_path": mlp_path.name,
+            "nn_path": nn_path.name,
+            "nn_k": int(self.nn.k),
+            "nn_temperature": float(self.nn.temperature),
+            "match_contract": self.match_contract,
+            "match_feature_indices": [int(i) for i in self.match_feature_indices.tolist()],
+            "match_feature_names": list(self.match_feature_names),
+            "mlp_temporal_feature_mode": self.mlp.temporal_feature_mode,
+            "evaluation_config_hash": self.evaluation_config_hash,
+            "evaluation_protocol_version": self.evaluation_protocol_version,
+            "recipe": self.recipe,
+            "arm_only_mlp": bool(self.arm_only_mlp),
+            "note": (
+                "MLP arm + NN gripper at rollout only. "
+                f"Match contract={self.match_contract}; recipe={self.recipe}."
+            ),
+        }
+        path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        return path
+
+    @classmethod
+    def load(cls, path: Path) -> "HybridNNGripperMLPPolicy":
+        path = Path(path)
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        if manifest.get("policy_type") != HYBRID_POLICY_TYPE:
+            raise ValueError(
+                f"not a hybrid manifest at {path}: policy_type={manifest.get('policy_type')!r}"
+            )
+        mlp_path = path.parent / str(manifest["mlp_path"])
+        nn_path = path.parent / str(manifest["nn_path"])
+        mlp = load_policy(mlp_path)
+        nn = load_policy(nn_path)
+        if not isinstance(mlp, MLPBCPolicy):
+            raise TypeError(f"hybrid mlp_path did not load an MLPBCPolicy: {mlp_path}")
+        if not isinstance(nn, NearestNeighborBCPolicy):
+            raise TypeError(
+                f"hybrid nn_path did not load a NearestNeighborBCPolicy: {nn_path}"
+            )
+        match_contract = str(manifest.get("match_contract", DEFAULT_MATCH_CONTRACT))
+        return cls(
+            mlp,
+            nn,
+            gripper_dim=int(manifest.get("gripper_dim", -1)),
+            match_feature_indices=np.asarray(
+                manifest.get("match_feature_indices", MATCH_FEATURE_INDICES),
+                dtype=int,
+            ),
+            match_feature_names=manifest.get("match_feature_names"),
+            match_contract=match_contract,
+            recipe=str(manifest.get("recipe", HYBRID_RECIPE_A1)),
+            arm_only_mlp=bool(manifest.get("arm_only_mlp", False)),
+        )
+
+
+def load_policy(
+    path: Path,
+) -> NearestNeighborBCPolicy | MLPBCPolicy | HybridNNGripperMLPPolicy:
+    path = Path(path)
+    if path.suffix == ".json":
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if payload.get("policy_type") == HYBRID_POLICY_TYPE:
+            return HybridNNGripperMLPPolicy.load(path)
+        raise ValueError(f"unsupported policy JSON at {path}: {payload.get('policy_type')!r}")
     data = np.load(path, allow_pickle=False)
     if "policy_type" in data.files and str(data["policy_type"]) == "mlp_bc":
         layer_count = int(data["layer_count"])
@@ -482,6 +816,21 @@ def load_policy(path: Path) -> NearestNeighborBCPolicy | MLPBCPolicy:
                 else 0
             ),
         )
+    match_indices = (
+        data["match_feature_indices"]
+        if "match_feature_indices" in data.files
+        else MATCH_FEATURE_INDICES
+    )
+    match_names = (
+        [str(name) for name in data["match_feature_names"].tolist()]
+        if "match_feature_names" in data.files
+        else None
+    )
+    match_contract = (
+        str(data["match_contract"])
+        if "match_contract" in data.files
+        else DEFAULT_MATCH_CONTRACT
+    )
     return NearestNeighborBCPolicy(
         action_space=str(data["action_space"]),
         feature_mean=data["feature_mean"],
@@ -506,6 +855,9 @@ def load_policy(path: Path) -> NearestNeighborBCPolicy | MLPBCPolicy:
             if "evaluation_protocol_version" in data.files
             else 0
         ),
+        match_feature_indices=np.asarray(match_indices, dtype=int),
+        match_feature_names=match_names,
+        match_contract=match_contract,
     )
 
 
@@ -760,6 +1112,7 @@ def fit_nearest_neighbor_policy(
     dataset: Dataset,
     k: int = 8,
     temperature: float = 0.75,
+    match_contract: str = DEFAULT_MATCH_CONTRACT,
 ) -> NearestNeighborBCPolicy:
     order = np.lexsort(
         (np.arange(len(dataset.group_keys)), dataset.progress_indices, dataset.group_keys)
@@ -788,6 +1141,7 @@ def fit_nearest_neighbor_policy(
         ends.append(end)
         cursor = end
 
+    match_indices, match_names = resolve_match_contract(match_contract)
     return NearestNeighborBCPolicy(
         action_space=dataset.action_space,
         feature_mean=feature_mean,
@@ -802,11 +1156,15 @@ def fit_nearest_neighbor_policy(
         actions=actions,
         k=k,
         temperature=temperature,
+        match_feature_indices=match_indices,
+        match_feature_names=match_names,
+        match_contract=match_contract,
     )
 
 
 # Demo phases where gripper timing is critical for event-order gates.
-CLOSE_TIMING_PHASES = ("grasp_align", "close_gripper")
+# Kept as a local alias so existing imports/tests remain stable.
+CLOSE_TIMING_PHASES = PROFILE_CLOSE_TIMING_PHASES
 
 
 def action_loss_weights(
@@ -815,19 +1173,34 @@ def action_loss_weights(
     *,
     gripper_loss_weight: float = 1.0,
     close_phase_gripper_weight: float | None = None,
+    loss_profile: str | None = None,
+    arm_only_mlp: bool = False,
 ) -> np.ndarray:
-    """Per-sample, per-dim MSE weights. Arm dims stay 1.0; gripper dim is reweighted."""
+    """Per-sample, per-dim MSE weights. Arm dims stay 1.0; gripper dim is reweighted.
+
+    When arm_only_mlp=True (H-EE-023 A2), gripper residual weight is 0 for all
+    samples so MLP capacity is not spent on a dim the hybrid NN overwrites.
+    """
 
     if action_size < 1:
         raise ValueError("action_size must be at least 1")
+    n = len(phase_indices)
+    weights = np.ones((n, action_size), dtype=float)
+    gripper_dim = action_size - 1
+    if arm_only_mlp:
+        weights[:, gripper_dim] = 0.0
+        return weights
+
+    gripper_loss_weight, close_phase_gripper_weight, _ = resolve_loss_weights(
+        loss_profile=loss_profile,
+        gripper_loss_weight=gripper_loss_weight,
+        close_phase_gripper_weight=close_phase_gripper_weight,
+    )
     if gripper_loss_weight <= 0.0:
         raise ValueError("gripper_loss_weight must be positive")
     if close_phase_gripper_weight is not None and close_phase_gripper_weight <= 0.0:
         raise ValueError("close_phase_gripper_weight must be positive when set")
 
-    n = len(phase_indices)
-    weights = np.ones((n, action_size), dtype=float)
-    gripper_dim = action_size - 1
     base_gripper = float(gripper_loss_weight)
     weights[:, gripper_dim] = base_gripper
     if close_phase_gripper_weight is not None:
@@ -835,6 +1208,57 @@ def action_loss_weights(
         close_mask = np.isin(np.asarray(phase_indices, dtype=int), list(close_indices))
         weights[close_mask, gripper_dim] = float(close_phase_gripper_weight)
     return weights
+
+
+def phase_sample_counts(phase_indices: np.ndarray) -> dict[str, int]:
+    """Count training samples in each demo phase."""
+
+    indices = np.asarray(phase_indices, dtype=int)
+    counts = {phase: 0 for phase in PHASE_LABELS}
+    for phase in PHASE_LABELS:
+        counts[phase] = int(np.sum(indices == _phase_index(phase)))
+    counts["close_timing_total"] = int(
+        sum(counts[phase] for phase in CLOSE_TIMING_PHASES)
+    )
+    counts["total"] = int(len(indices))
+    return counts
+
+
+def phase_action_loss_report(
+    residual: np.ndarray,
+    phase_indices: np.ndarray,
+    loss_weights: np.ndarray,
+) -> dict[str, dict[str, float | int]]:
+    """Unweighted arm/gripper MSE by demo phase, plus mean applied gripper weight."""
+
+    residual = np.asarray(residual, dtype=float)
+    phase_indices = np.asarray(phase_indices, dtype=int)
+    loss_weights = np.asarray(loss_weights, dtype=float)
+    if residual.ndim != 2:
+        raise ValueError("residual must be (N, action_dim)")
+    action_size = residual.shape[1]
+    gripper_dim = action_size - 1
+    report: dict[str, dict[str, float | int]] = {}
+    for phase in PHASE_LABELS:
+        mask = phase_indices == _phase_index(phase)
+        count = int(mask.sum())
+        if count == 0:
+            report[phase] = {
+                "sample_count": 0,
+                "arm_mse": 0.0,
+                "gripper_mse": 0.0,
+                "mean_gripper_weight": 0.0,
+            }
+            continue
+        arm_residual = residual[mask, :gripper_dim]
+        grip_residual = residual[mask, gripper_dim]
+        report[phase] = {
+            "sample_count": count,
+            "arm_mse": float(np.mean(arm_residual**2)),
+            "gripper_mse": float(np.mean(grip_residual**2)),
+            "mean_gripper_weight": float(np.mean(loss_weights[mask, gripper_dim])),
+        }
+    return report
 
 
 def fit_mlp_policy(
@@ -848,9 +1272,28 @@ def fit_mlp_policy(
     temporal_feature_mode: str = "legacy_progress_phase",
     gripper_loss_weight: float = 1.0,
     close_phase_gripper_weight: float | None = None,
+    loss_profile: str | None = None,
+    arm_only_mlp: bool = False,
 ) -> tuple[MLPBCPolicy, dict]:
     if temporal_feature_mode not in TEMPORAL_FEATURE_MODES:
         raise ValueError(f"unknown temporal feature mode: {temporal_feature_mode}")
+    if arm_only_mlp:
+        # A2: skip profile resolution for gripper weights; arm dims stay 1.0.
+        resolved_profile = None
+        if loss_profile is not None:
+            # Still record the requested profile name for manifests, but arm-only
+            # zeros gripper regardless of named profile weights.
+            _, _, resolved_profile = resolve_loss_weights(
+                loss_profile=loss_profile,
+                gripper_loss_weight=gripper_loss_weight,
+                close_phase_gripper_weight=close_phase_gripper_weight,
+            )
+    else:
+        gripper_loss_weight, close_phase_gripper_weight, resolved_profile = resolve_loss_weights(
+            loss_profile=loss_profile,
+            gripper_loss_weight=gripper_loss_weight,
+            close_phase_gripper_weight=close_phase_gripper_weight,
+        )
     feature_mean = dataset.features.mean(axis=0)
     feature_scale = dataset.features.std(axis=0)
     feature_scale = np.where(feature_scale <= 1e-9, 1.0, feature_scale)
@@ -931,8 +1374,10 @@ def fit_mlp_policy(
     loss_weights = action_loss_weights(
         dataset.phase_indices,
         y.shape[1],
+        arm_only_mlp=arm_only_mlp,
         gripper_loss_weight=gripper_loss_weight,
         close_phase_gripper_weight=close_phase_gripper_weight,
+        loss_profile=None,  # already resolved above
     )
 
     rng = np.random.default_rng(seed)
@@ -1005,11 +1450,12 @@ def fit_mlp_policy(
         base_feature_names=dataset.feature_names,
         policy_feature_names=mlp_policy_feature_names(temporal_feature_mode),
     )
-    close_phase_count = int(
-        np.isin(
-            dataset.phase_indices,
-            [_phase_index(phase) for phase in CLOSE_TIMING_PHASES],
-        ).sum()
+    sample_counts = phase_sample_counts(dataset.phase_indices)
+    final_residual = forward_mlp(x, weights, biases) - y
+    per_phase_losses = phase_action_loss_report(
+        final_residual,
+        dataset.phase_indices,
+        loss_weights,
     )
     return policy, {
         "policy_type": "mlp_bc",
@@ -1031,8 +1477,15 @@ def fit_mlp_policy(
             if close_phase_gripper_weight is None
             else float(close_phase_gripper_weight)
         ),
+        "arm_only_mlp": bool(arm_only_mlp),
+        "loss_profile": None if resolved_profile is None else resolved_profile.name,
+        "loss_profile_contract": (
+            None if resolved_profile is None else resolved_profile.to_dict()
+        ),
         "close_timing_phases": list(CLOSE_TIMING_PHASES),
-        "close_timing_sample_count": close_phase_count,
+        "close_timing_sample_count": int(sample_counts["close_timing_total"]),
+        "phase_sample_counts": sample_counts,
+        "per_phase_action_loss": per_phase_losses,
     }
 
 
@@ -1064,13 +1517,14 @@ def _adam_update(
 
 def rollout_policy(
     env: PickupTaskEvaluator,
-    policy: NearestNeighborBCPolicy | MLPBCPolicy,
+    policy: NearestNeighborBCPolicy | MLPBCPolicy | HybridNNGripperMLPPolicy,
     spec: PickupTrialSpec,
     max_steps: int = 3200,
     search_window: int = 120,
     action_gain: float = 1.0,
     gripper_close_guard: bool = False,
 ) -> PolicyTrialResult:
+    representation = get_action_representation(policy.action_space)
     env.reset(np.asarray(spec.object_pose.xyz, dtype=float))
     settled_start = env.object_position.copy()
     _, grasp_pos, grasp_quat = env.scripted_controller_commands(spec, settled_start)
@@ -1096,6 +1550,8 @@ def rollout_policy(
     cursor = 0
     suppressed_close_steps = 0
     guard_closure_started = False
+    gripper_command_flips = 0
+    previous_gripper_closed: bool | None = None
 
     for _ in range(max_steps):
         observation = env.get_observation()
@@ -1109,11 +1565,7 @@ def rollout_policy(
         cursor = max(cursor + 1, nearest_index + 1)
         nearest_distances.append(nearest_distance)
         raw_action = action.copy()
-        executed_action = raw_action.copy()
-        if policy.action_space == "joint_delta":
-            executed_action[:5] *= action_gain
-        elif policy.action_space == "ee_tool_delta":
-            executed_action[:5] *= action_gain
+        executed_action = representation.scale_arm(raw_action, action_gain)
         raw_action_norms.append(float(np.linalg.norm(raw_action)))
         if previous_raw_action is not None:
             raw_action_delta_norms.append(float(np.linalg.norm(raw_action - previous_raw_action)))
@@ -1127,6 +1579,11 @@ def rollout_policy(
         )
         suppressed_close_steps += int(suppressed)
 
+        gripper_closed = bool(executed_action[-1] <= PRECLOSE_OPEN_THRESHOLD)
+        if previous_gripper_closed is not None and gripper_closed != previous_gripper_closed:
+            gripper_command_flips += 1
+        previous_gripper_closed = gripper_closed
+
         executed_action_norms.append(float(np.linalg.norm(executed_action)))
         if previous_executed_action is not None:
             executed_action_delta_norms.append(
@@ -1134,32 +1591,19 @@ def rollout_policy(
             )
         previous_executed_action = executed_action.copy()
 
-        if policy.action_space == "joint_delta":
-            _, _, status = env.step_joint_delta_action(executed_action[:5], executed_action[5])
-            clipped_joints += int(status["clipped_joints"])
-            joint_limit_clipped += int(status["joint_limit_clipped"])
-            joint_step_clipped += int(status["joint_step_clipped"])
-            joint_accel_clipped += int(status["joint_accel_clipped"])
-            infeasible += int(status["infeasible"])
-            controller_failures += int(status["controller_failed"])
-            controller_failure_reason = status["failure_reason"] or controller_failure_reason
-        elif policy.action_space == "ee_tool_delta":
-            _, _, status = env.step_ee_tool_delta_action(
-                executed_action[:3],
-                executed_action[3:5],
-                executed_action[5],
-            )
-            clipped_translation += int(status.clipped_translation)
-            clipped_rotation += int(status.clipped_rotation)
-            clipped_joints += int(status.clipped_joints)
-            joint_limit_clipped += int(status.joint_limit_clipped)
-            joint_step_clipped += int(status.joint_step_clipped)
-            joint_accel_clipped += int(status.joint_accel_clipped)
-            infeasible += int(status.infeasible)
-            controller_failures += int(status.controller_failed)
-            controller_failure_reason = status.failure_reason or controller_failure_reason
-        else:
-            raise ValueError(f"unknown action space: {policy.action_space}")
+        _, _, status = representation.execute(env, executed_action)
+        telemetry = representation.telemetry(status)
+        clipped_translation += int(telemetry["clipped_translation"])
+        clipped_rotation += int(telemetry["clipped_rotation"])
+        clipped_joints += int(telemetry["clipped_joints"])
+        joint_limit_clipped += int(telemetry["joint_limit_clipped"])
+        joint_step_clipped += int(telemetry["joint_step_clipped"])
+        joint_accel_clipped += int(telemetry["joint_accel_clipped"])
+        infeasible += int(telemetry["infeasible"])
+        controller_failures += int(telemetry["controller_failed"])
+        controller_failure_reason = (
+            telemetry["failure_reason"] or controller_failure_reason
+        )
 
         if controller_failures:
             break
@@ -1279,6 +1723,28 @@ def rollout_policy(
         action_delta_l2_mean=_mean(executed_action_delta_norms),
         nearest_distance_mean=_mean(nearest_distances),
         nearest_distance_max=max(nearest_distances) if nearest_distances else 0.0,
+        close_start_distance=(
+            None
+            if metrics["close_start_distance"] is None
+            else float(metrics["close_start_distance"])
+        ),
+        first_close_time=(
+            None if metrics["first_close_time"] is None else float(metrics["first_close_time"])
+        ),
+        first_contact_time=(
+            None
+            if metrics["first_contact_time"] is None
+            else float(metrics["first_contact_time"])
+        ),
+        first_unsupported_time=(
+            None
+            if metrics["first_unsupported_time"] is None
+            else float(metrics["first_unsupported_time"])
+        ),
+        first_lift_time=(
+            None if metrics["first_lift_time"] is None else float(metrics["first_lift_time"])
+        ),
+        gripper_command_flips=int(gripper_command_flips),
     )
 
 

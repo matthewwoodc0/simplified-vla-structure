@@ -105,6 +105,22 @@ class ToolAxisEndEffectorDeltaActionAdapter:
         return ActionLabel(self.name, values)
 
 
+ACTION_LABEL_ADAPTERS: tuple[ActionSpaceAdapter, ...] = (
+    JointDeltaActionAdapter(),
+    EndEffectorDeltaActionAdapter(),
+    ToolAxisEndEffectorDeltaActionAdapter(),
+)
+
+
+def get_action_label_adapter(name: str) -> ActionSpaceAdapter:
+    """Return the canonical transition encoder for an action-space name."""
+
+    for adapter in ACTION_LABEL_ADAPTERS:
+        if adapter.name == name:
+            return adapter
+    raise ValueError(f"unknown action space: {name}")
+
+
 def label_transition_all(
     before: TrajectoryState,
     after: TrajectoryState,

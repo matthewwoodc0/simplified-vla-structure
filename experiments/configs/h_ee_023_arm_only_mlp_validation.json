@@ -1,0 +1,29 @@
+{
+  "format": "svla_experiment_config_v1",
+  "name": "h_ee_023_arm_only_mlp_validation",
+  "hypothesis": "H-EE-023",
+  "status": "rejected",
+  "entrypoint": "scripts/train_state_bc.py",
+  "arguments": {
+    "output-dir": "outputs/h_ee_023_arm_only_mlp_validation",
+    "evaluation-protocol": "v2",
+    "eval-split": "validation",
+    "temporal-feature-mode": "legacy_progress_phase",
+    "policy-type": "mlp",
+    "hybrid-nn-gripper": true,
+    "arm-only-mlp": true,
+    "match-contract": "historical",
+    "loss-profile": "global_gripper",
+    "seeds": [0, 1, 2, 3, 4],
+    "hidden-sizes": [128, 128],
+    "epochs": 300,
+    "batch-size": 1024,
+    "learning-rate": 0.001,
+    "weight-decay": 0.00001,
+    "stride": 1,
+    "max-steps": 3200,
+    "action-gain": 1.0,
+    "label-source": "policy_labels"
+  },
+  "evidence": ["outputs/h_ee_023_arm_only_mlp_validation/state_bc_summary.json"]
+}

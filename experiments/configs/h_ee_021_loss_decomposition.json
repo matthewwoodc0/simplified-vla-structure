@@ -1,0 +1,12 @@
+{
+  "format": "svla_experiment_config_v1",
+  "name": "h_ee_021_loss_decomposition",
+  "hypothesis": "H-EE-021",
+  "status": "confirmed",
+  "entrypoint": "scripts/run_loss_decomposition.py",
+  "arguments": {
+    "output-dir": "outputs/h_ee_021_loss_decomposition",
+    "profiles": ["uniform", "global_gripper", "transition_gripper", "combined_h_ee_008"]
+  },
+  "evidence": ["outputs/h_ee_021_loss_decomposition/h_ee_021_comparison.json"]
+}

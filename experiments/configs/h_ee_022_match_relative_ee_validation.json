@@ -1,0 +1,17 @@
+{
+  "format": "svla_experiment_config_v1",
+  "name": "h_ee_022_match_relative_ee_validation",
+  "hypothesis": "H-EE-022",
+  "status": "rejected",
+  "entrypoint": "scripts/run_h_ee_022_match_reeval.py",
+  "arguments": {
+    "model-dir": "outputs/h_ee_014_nn_gripper_global_validation/models",
+    "output-dir": "outputs/h_ee_022_match_relative_ee_validation",
+    "match-contract": "match_relative_ee",
+    "seeds": [0, 1, 2, 3, 4],
+    "max-steps": 3200,
+    "search-window": 5,
+    "action-gain": 1.0
+  },
+  "evidence": ["outputs/h_ee_022_match_relative_ee_validation/h_ee_022_comparison.json"]
+}

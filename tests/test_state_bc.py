@@ -6,6 +6,10 @@ from svla.demo_recorder import PickupDemoRecorder
 from svla.pickup_task import PickupTaskEvaluator, default_trial_specs
 from svla.state_bc import (
     CLOSE_TIMING_PHASES,
+    HYBRID_POLICY_TYPE,
+    MATCH_FEATURE_INDICES,
+    MATCH_FEATURE_NAMES,
+    HybridNNGripperMLPPolicy,
     PHASE_LABELS,
     TaskContext,
     action_loss_weights,
@@ -364,3 +368,137 @@ def test_rollout_records_raw_and_executed_guard_metrics_for_both_action_spaces()
         assert not unguarded.shielded_policy
         assert unguarded.suppressed_close_steps == 0
         assert unguarded.raw_action_l2_mean == unguarded.executed_action_l2_mean
+
+
+def test_hybrid_nn_gripper_composes_mlp_arm_and_nn_gripper(tmp_path):
+    """H-EE-014: arm dims from MLP, gripper from NN; MLP weights unchanged."""
+
+    recorder = PickupDemoRecorder(PickupTaskEvaluator())
+    spec = default_trial_specs(repeats=1)[0]
+    demo_path = tmp_path / "demo.json"
+    recorder.write_trial(spec, demo_path)
+    dataset = load_demo_dataset([demo_path], action_space="ee_tool_delta", stride=20)
+    mlp, _ = fit_mlp_policy(dataset, hidden_sizes=(8,), epochs=2, batch_size=64, seed=2)
+    nn = fit_nearest_neighbor_policy(dataset, k=1)
+    mlp_weight_snapshot = [w.copy() for w in mlp.weights]
+    mlp_bias_snapshot = [b.copy() for b in mlp.biases]
+
+    hybrid = HybridNNGripperMLPPolicy(mlp, nn)
+    demo = json.loads(demo_path.read_text(encoding="utf-8"))
+    sample = demo["samples"][15]
+    context = TaskContext.from_demo(demo)
+    features = observation_to_features(
+        sample["observation"],
+        context,
+        np.asarray(demo["summary"]["object_start_pose"], dtype=float),
+    )
+    cursor = int(sample["step_index"])
+    a_mlp, _, mlp_idx = mlp.predict_with_index(features, context.key, cursor=cursor)
+    a_nn, nn_dist, _ = nn.predict_with_index(
+        features, context.key, cursor=cursor, search_window=1
+    )
+    a_hybrid, hybrid_dist, hybrid_idx = hybrid.predict_with_index(
+        features, context.key, cursor=cursor, search_window=1
+    )
+
+    assert a_hybrid.shape == (6,)
+    assert np.allclose(a_hybrid[:5], a_mlp[:5])
+    assert np.isclose(a_hybrid[-1], a_nn[-1])
+    assert np.isclose(hybrid_dist, nn_dist)
+    assert hybrid_idx == mlp_idx
+    # Compositor must not mutate trained MLP parameters.
+    for original, current in zip(mlp_weight_snapshot, mlp.weights):
+        assert np.array_equal(original, current)
+    for original, current in zip(mlp_bias_snapshot, mlp.biases):
+        assert np.array_equal(original, current)
+
+    manifest_path = hybrid.save(tmp_path / "hybrid_policy.json")
+    reloaded = load_policy(manifest_path)
+    assert isinstance(reloaded, HybridNNGripperMLPPolicy)
+    a_reload, _, _ = reloaded.predict_with_index(
+        features, context.key, cursor=cursor, search_window=1
+    )
+    assert np.allclose(a_reload, a_hybrid)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["policy_type"] == HYBRID_POLICY_TYPE
+    assert manifest["match_feature_names"] == list(MATCH_FEATURE_NAMES)
+    assert manifest["match_feature_indices"] == [int(i) for i in MATCH_FEATURE_INDICES]
+    assert manifest["recipe"] == "A1_compositor"
+
+
+def test_hybrid_nn_gripper_rollout_both_action_spaces(tmp_path):
+    recorder = PickupDemoRecorder(PickupTaskEvaluator())
+    spec = default_trial_specs(repeats=1)[0]
+    demo_path = tmp_path / "demo.json"
+    recorder.write_trial(spec, demo_path)
+
+    for action_space in ("joint_delta", "ee_tool_delta"):
+        dataset = load_demo_dataset([demo_path], action_space=action_space, stride=30)
+        mlp, _ = fit_mlp_policy(
+            dataset, hidden_sizes=(8,), epochs=1, batch_size=64, seed=0
+        )
+        nn = fit_nearest_neighbor_policy(dataset, k=1)
+        hybrid = HybridNNGripperMLPPolicy(mlp, nn)
+        result = rollout_policy(
+            PickupTaskEvaluator(),
+            hybrid,
+            spec,
+            max_steps=8,
+            search_window=5,
+        )
+        assert result.action_space == action_space
+        assert result.steps >= 1
+        assert np.isfinite(result.nearest_distance_mean)
+
+
+def test_match_relative_ee_contract_is_named_and_does_not_change_default():
+    from svla.state_bc import (
+        DEFAULT_MATCH_CONTRACT,
+        MATCH_CONTRACT_RELATIVE_EE,
+        MATCH_FEATURE_INDICES,
+        resolve_match_contract,
+    )
+
+    hist_idx, hist_names = resolve_match_contract(DEFAULT_MATCH_CONTRACT)
+    assert np.array_equal(hist_idx, MATCH_FEATURE_INDICES)
+    rel_idx, rel_names = resolve_match_contract(MATCH_CONTRACT_RELATIVE_EE)
+    assert "object_minus_ee_x" in rel_names
+    assert "gripper_open" in rel_names
+    assert "object_x" not in rel_names
+    assert not np.array_equal(rel_idx, hist_idx)
+
+
+def test_hybrid_set_match_contract_switches_nn_retrieval(tmp_path):
+    from svla.state_bc import MATCH_CONTRACT_RELATIVE_EE
+
+    recorder = PickupDemoRecorder(PickupTaskEvaluator())
+    spec = default_trial_specs(repeats=1)[0]
+    demo_path = tmp_path / "demo.json"
+    recorder.write_trial(spec, demo_path)
+    dataset = load_demo_dataset([demo_path], action_space="ee_tool_delta", stride=20)
+    mlp, _ = fit_mlp_policy(dataset, hidden_sizes=(8,), epochs=1, batch_size=64, seed=0)
+    nn = fit_nearest_neighbor_policy(dataset, k=1)
+    hybrid = HybridNNGripperMLPPolicy(mlp, nn)
+    assert hybrid.match_contract == "historical"
+    hybrid.set_match_contract(MATCH_CONTRACT_RELATIVE_EE)
+    assert hybrid.match_contract == MATCH_CONTRACT_RELATIVE_EE
+    assert hybrid.nn.match_contract == MATCH_CONTRACT_RELATIVE_EE
+    assert "object_minus_ee_x" in hybrid.match_feature_names
+    # Rollout still produces finite gripper action under the secondary contract.
+    result = rollout_policy(
+        PickupTaskEvaluator(), hybrid, spec, max_steps=4, search_window=5
+    )
+    assert result.steps >= 1
+
+
+def test_arm_only_mlp_zeros_gripper_loss_weight():
+    from svla.state_bc import action_loss_weights
+
+    phases = np.array([0, 3, 4, 5], dtype=int)  # includes grasp_align/close
+    weights = action_loss_weights(phases, action_size=6, arm_only_mlp=True)
+    assert weights.shape == (4, 6)
+    assert np.allclose(weights[:, :5], 1.0)
+    assert np.allclose(weights[:, 5], 0.0)
+    # Non-arm-only still enforces positive gripper weight.
+    uniform = action_loss_weights(phases, action_size=6, gripper_loss_weight=5.0)
+    assert np.allclose(uniform[:, 5], 5.0)

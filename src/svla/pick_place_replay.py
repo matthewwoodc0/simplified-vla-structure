@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from svla.core.action_space import COMPARISON_ACTION_SPACES, get_action_representation
 from svla.pickup_task import (
     LIFT_CLEARANCE,
     RETENTION_CLEARANCE,
@@ -10,7 +11,7 @@ from svla.pickup_task import (
 )
 
 
-ACTION_SPACES = ("joint_delta", "ee_tool_delta")
+ACTION_SPACES = COMPARISON_ACTION_SPACES
 
 
 def replay_demo_policy_labels(
@@ -38,6 +39,7 @@ def replay_demo_policy_labels(
         "controller_failure_steps": 0,
     }
     contact_during_close = False
+    representation = get_action_representation(action_space)
     for sample_index, sample in enumerate(demo["samples"]):
         sample_phase = str(sample.get("phase", ""))
         maybe_finalize_grasp_at_sample(env, sample_index, boundary_index)
@@ -47,18 +49,14 @@ def replay_demo_policy_labels(
                 env.get_success_metrics()["close_contact_steps"]
             )
         action = np.asarray(sample["policy_labels"][action_space], dtype=float)
-        if action_space == "joint_delta":
-            _, _, status = env.step_joint_delta_action(action[:5], action[5])
-            get = status.__getitem__
-        else:
-            _, _, status = env.step_ee_tool_delta_action(action[:3], action[3:5], action[5])
-            get = lambda name: getattr(status, name)
-        counts["saturated_steps"] += int(get("saturated"))
-        counts["joint_limit_clipped_steps"] += int(get("joint_limit_clipped"))
-        counts["joint_step_clipped_steps"] += int(get("joint_step_clipped"))
-        counts["joint_accel_clipped_steps"] += int(get("joint_accel_clipped"))
-        counts["infeasible_steps"] += int(get("infeasible"))
-        counts["controller_failure_steps"] += int(get("controller_failed"))
+        _, _, status = representation.execute(env, action)
+        telemetry = representation.telemetry(status)
+        counts["saturated_steps"] += int(telemetry["saturated"])
+        counts["joint_limit_clipped_steps"] += int(telemetry["joint_limit_clipped"])
+        counts["joint_step_clipped_steps"] += int(telemetry["joint_step_clipped"])
+        counts["joint_accel_clipped_steps"] += int(telemetry["joint_accel_clipped"])
+        counts["infeasible_steps"] += int(telemetry["infeasible"])
+        counts["controller_failure_steps"] += int(telemetry["controller_failed"])
         if close_contact_steps_before is not None:
             close_contact_steps_after = int(
                 env.get_success_metrics()["close_contact_steps"]

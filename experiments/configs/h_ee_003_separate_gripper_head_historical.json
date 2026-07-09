@@ -1,0 +1,30 @@
+{
+  "format": "svla_experiment_config_v1",
+  "name": "h_ee_003_separate_gripper_head_historical",
+  "hypothesis": "H-EE-003",
+  "status": "rejected_historical_implementation",
+  "entrypoint": "scripts/train_state_bc.py",
+  "runnable": false,
+  "non_runnable_reason": "The separate_gripper_classifier implementation was removed after rejection; the original command is retained here, but current train_state_bc.py no longer accepts --mlp-output-head.",
+  "arguments": {
+    "output-dir": "outputs/h_ee_003_separate_gripper_head_validation",
+    "evaluation-protocol": "v2",
+    "eval-split": "validation",
+    "temporal-feature-mode": "legacy_progress_phase",
+    "policy-type": "mlp",
+    "mlp-output-head": "separate_gripper_classifier",
+    "seeds": [0, 1, 2, 3, 4],
+    "hidden-sizes": [128, 128],
+    "epochs": 300,
+    "batch-size": 1024,
+    "learning-rate": 0.001,
+    "weight-decay": 0.00001,
+    "stride": 1,
+    "max-steps": 3200,
+    "action-gain": 1.0,
+    "label-source": "policy_labels",
+    "gripper-loss-weight": 5.0,
+    "close-phase-gripper-weight": 10.0
+  },
+  "evidence": ["outputs/h_ee_003_separate_gripper_head_validation/state_bc_summary.json"]
+}

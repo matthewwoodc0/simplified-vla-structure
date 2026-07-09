@@ -45,21 +45,22 @@ Phase 2  Action-space adapters          DONE
 Phase 3  Pickup task + scripted expert  DONE
 Phase 4  Recorded demonstrations        DONE (sample scale)
 Phase 5  State-based behavioral cloning DONE (MLP baseline, fair A/B)
-Phase 6  Vision                         NOT STARTED (next)
+Phase 6a Vision data/render plumbing    DONE (infrastructure only)
+Phase 6b Vision-conditioned policy     BLOCKED (action-space gate open)
 Phase 7  Language / VLA                 NOT STARTED (blocked until multi-behavior)
 ```
 
 **Key idea:** If you skip straight to "train a VLA," you will not know whether
 failures came from the model, the controller, the task, or bad data.
 
-**Important honesty check:** Phase 5 is complete enough to begin vision, but it
-does **not** answer the research question yet. The repo can load state
-observations, train/evaluate `joint_delta` and `ee_tool_delta` MLP policies, and
-roll them out in MuJoCo with categorized failures. Latest held-out eval on the
-frozen final split: **61/72 joint (84.7%)** vs **60/72 ee_tool_delta (83.3%)**
-— essentially a tie, not evidence that either action space wins. All failures
-were gripper/contact; controller/IK failures were zero. That is trustworthy
-infrastructure evidence, not a VLA-ready research result by itself.
+**Important honesty check:** Phase 5 does **not** answer the research question
+yet. The registered raw final result is **51/120 joint (42.5%)** vs **28/120
+ee_tool_delta (23.3%)**; both policies fail the proposed release gates. The best
+later validation result uses the H-EE-014 hybrid NN-gripper + MLP-arm policy:
+**97/120 joint** vs **62/120 ee_tool_delta**. That result has not opened the final
+holdout. Failures still include event order, physical sanity, controller-constraint
+exposure, and seed instability. Phase 6a RGB capture exists, but Phase 6b policy
+training remains blocked.
 
 ---
 
@@ -277,9 +278,9 @@ Key classes:
 Be precise about what this baseline proves:
 
 - The state-BC loop runs end to end for both action spaces.
-- Learned MLP policies reach ~84% success on the frozen final eval split.
-- Joint vs EE is essentially a tie (61/72 vs 60/72); neither has won yet.
-- Failures are categorized as gripper/contact, not hidden controller bugs.
+- Registered raw MLP final: joint 51/120 vs EE 28/120; both fail the proposed gates.
+- Best hybrid validation: joint 97/120 vs EE 62/120; final remains closed.
+- Failures span event order, physical sanity, constraint exposure, and seed stability.
 - It does **not** prove vision or language will behave the same way.
 
 ### `scripts/*.py`
@@ -573,7 +574,7 @@ teleop → controller → physics live. There is no separate MP4. Focus on:
 `apply_delta`) or teleporting the arm directly? (Integrating targets — same
 pattern as policies.)
 
-//it is just moving the target and the model is trying to find it on itself 
+//it is just moving the target and the model is trying to find it on itself
 
 **Files to peek at after playing:**
 
@@ -717,7 +718,7 @@ same motion. That alignment is what makes the joint vs `ee_tool_delta` compariso
 ---
 
 
-//HAVE NOT COMPLETED ANYTHING BELOW THIS 
+//HAVE NOT COMPLETED ANYTHING BELOW THIS
 
 ### Lab 6 — Action adapters in isolation
 
@@ -818,24 +819,26 @@ python scripts/train_state_bc.py --policy-type nearest --k 1 --search-window 1 -
 
 High success here mostly verifies demo replay plumbing, not robust generalization.
 
-**Experiment — stricter eval (matches the frozen Phase 5 baseline, ~10+ min):**
+**Experiment — current H-EE-014 validation contract (long run):**
 
 ```bash
 python scripts/train_state_bc.py \
   --output-dir outputs/state_bc_learning_guide \
   --policy-type mlp \
-  --train-grid dense \
-  --eval-mode final \
+  --hybrid-nn-gripper \
+  --loss-profile global_gripper \
+  --evaluation-protocol v2 \
+  --eval-split validation \
   --epochs 300 \
   --hidden-sizes 128 128 \
-  --seeds 0 1 2 \
+  --seeds 0 1 2 3 4 \
   --joint-action-gain 1.0 \
   --ee-action-gain 1.0
 ```
 
-Expect on the order of **~84%** success for both action spaces — a tie, not a
-winner. Check that failures are `gripper_or_contact_model_failure`, not
-controller/IK failures.
+The recorded source-matched H-EE-014 validation result was **97/120 joint** and
+**62/120 EE**. A rerun is reproducibility evidence, not permission to access the
+final holdout or begin Phase 6b.
 
 **What you learned:** The ML loop exists and the fair A/B comparison runs. A
 fast run proves wiring; the stricter run approximates the real baseline. Neither
@@ -1018,14 +1021,16 @@ Each sample row:
 ## 8. Roadmap: where you are and what is next
 
 ```text
-YOU ARE HERE ──► Phase 5 DONE — ready for Phase 6 vision
+YOU ARE HERE ──► Phase 5 learned-policy gate OPEN / BLOCKED
                  ├── controller validation: deterministic, measurable
                  ├── action replay: joint + ee_tool_delta 18/18
                  ├── scripted pickup benchmark: 36/36
-                 ├── state MLP BC: joint 61/72 vs ee_tool_delta 60/72 (tie)
-                 └── failures: gripper/contact only; controller/IK: 0
+                 ├── raw final MLP: joint 51/120 vs ee_tool_delta 28/120
+                 ├── best hybrid validation: joint 97/120 vs ee_tool_delta 62/120
+                 └── failures: event order + physical sanity + constraints + seeds
 
-NEXT ──► Phase 6: fixed-camera RGB + vision BC (keep state MLP as baseline)
+DONE ──► Phase 6a: fixed-camera RGB capture/dataset/validation plumbing
+BLOCKED ──► Phase 6b: vision-conditioned BC (keep state policy as baseline)
 THEN ──► Phase 7: multiple instruction-distinct behaviors + compact VLA
          (language blocked until pick/place variants validate on scripted + BC)
 ```

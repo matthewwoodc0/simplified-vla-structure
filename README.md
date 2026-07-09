@@ -22,7 +22,7 @@ The working hypothesis is that a policy should learn faster when its output look
 instead of:
 
 ```text
-[joint_1, joint_2, joint_3, joint_4, joint_5, joint_6, gripper]
+[joint_1, joint_2, joint_3, joint_4, joint_5, gripper]
 ```
 
 because the controller can absorb inverse kinematics, target clipping, smoothing,
@@ -33,7 +33,9 @@ space is more honest.
 
 ## Current Status
 
-This repo currently has the first simulation/control smoke test:
+This repo has a working controller/task/data/evaluation stack, a state-BC research
+program, and Phase 6a vision dataset plumbing. The current learned-policy gate remains
+blocked; see [`RESULTS.md`](RESULTS.md) for the concise evidence table.
 
 - `assets/simple_arm.xml` defines a small six-joint MuJoCo arm with a gripper placeholder.
 - `src/svla/controller.py` implements damped-least-squares Cartesian IK with target clipping.
@@ -45,6 +47,13 @@ This repo currently has the first simulation/control smoke test:
   manual teleoperation.
 - `src/svla/action_spaces.py` defines aligned joint-delta, full EE-delta, and reduced
   tool-axis EE-delta trajectory labels behind a shared adapter interface.
+- `src/svla/core/action_space.py` is the canonical representation registry used by
+  training, replay, rollout, and rendering for decode/execute behavior.
+- `src/svla/eval/` owns frozen protocols and provenance manifests; compatibility imports
+  preserve the older module paths.
+- `src/svla/experiments/config.py` and `experiments/configs/` provide versioned,
+  dry-run-first experiment launches.
+- `analysis/` contains offline result analysis that cannot alter rollout behavior.
 - `scripts/run_reach_demo.py` runs a headless reaching demo.
 - `scripts/render_reach_demo.py` exports a MuJoCo MP4 so the environment is visible.
 - `scripts/train_reach_policy.py` trains a tiny numpy-only reach policy and renders it.
@@ -80,6 +89,25 @@ This repo currently has the first simulation/control smoke test:
 This now includes an initial tabletop pickup benchmark and Phase 6a fixed-camera RGB
 dataset infrastructure. It is still controller-first: there is no trained vision policy,
 no VLA logic, no language, and no PyTorch in the pickup path.
+
+## Repository Organization
+
+```text
+src/svla/core/          canonical action representation contracts
+src/svla/              controller, task, demos, state policies, and vision data code
+src/svla/eval/          evaluation splits, gates, and provenance manifests
+src/svla/experiments/   config schema and deterministic command rendering
+experiments/configs/    versioned experiment launches and historical records
+analysis/               read-only result/failure analysis
+scripts/                user-facing execution and compatibility entry points
+tests/                  unit, contract, tiny-train, and closed-loop smoke tests
+evidence/               small tracked result records; large artifacts stay in outputs/
+reports/                auditable change and experiment reports
+```
+
+The large `pickup_task.py` and `state_bc.py` modules remain in place on this branch. Their
+internal coupling is a real maintainability cost, but physically moving active research
+code while H-EE-014 residual work is uncommitted would create more risk than clarity.
 
 ## How To See It
 
@@ -356,6 +384,12 @@ Phase 5 - State-based behavioral cloning
     - both have zero numerical `controller_failure_steps`, but substantial joint-limit
       exposure (EE 21.3% and joint 19.7% of rollout steps); numerical failure and saturation
       are distinct.
+  Best later validation result (final holdout still closed):
+    - H-EE-014 hybrid NN gripper + MLP arm under `global_gripper`: EE 62/120,
+      event-order 79/120, worst seed 9/24, reopen 0; joint 97/120.
+    - H-EE-022 match-relative retrieval and H-EE-023 arm-only MLP were rejected.
+    - the post-H-EE-014 residual program leaves missing-lift/impulse and early-close as the
+      main EE targets; this does not authorize Phase 6b.
   What this proves:
     - scripted execution and policy-label replay work in the declared simulator envelope,
     - neither raw learned policy is viable for the primary comparison,
@@ -575,11 +609,12 @@ controller-level action spaces simplify learning.
 
 ## Action Spaces To Compare
 
-The first serious experiment should compare action spaces behind a common adapter API:
+The current experiment compares action spaces behind the registry in
+`src/svla/core/action_space.py`:
 
 1. Joint delta baseline:
    ```text
-   [delta_joint_1, ..., delta_joint_6, gripper_open]
+   [delta_joint_1, ..., delta_joint_5, gripper_open]
    ```
 
 2. End-effector delta:

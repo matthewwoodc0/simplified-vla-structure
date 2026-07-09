@@ -22,9 +22,19 @@ from svla.pickup_task import (
     PickupTrialSpec,
     default_trial_specs,
 )
+from svla.loss_profiles import LOSS_PROFILE_NAMES, RESEARCH_PARITY_FRONTIER, resolve_loss_weights
 from svla.state_bc import (
     ACTION_SPACES,
+    DEFAULT_MATCH_CONTRACT,
+    HYBRID_POLICY_TYPE,
+    HYBRID_RECIPE_A1,
+    HYBRID_RECIPE_A2,
+    MATCH_CONTRACT_NAMES,
+    MATCH_FEATURE_INDICES,
+    MATCH_FEATURE_NAMES,
+    HybridNNGripperMLPPolicy,
     TaskContext,
+    resolve_match_contract,
     fit_mlp_policy,
     fit_nearest_neighbor_policy,
     load_demo_dataset,
@@ -185,6 +195,11 @@ def evaluation_specs(mode: str, train_grid: str, repeats: int) -> list[PickupTri
 def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
     protocol = None
     protocol_metadata = None
+    gripper_loss_weight, close_phase_gripper_weight, resolved_profile = resolve_loss_weights(
+        loss_profile=args.loss_profile,
+        gripper_loss_weight=args.gripper_loss_weight,
+        close_phase_gripper_weight=args.close_phase_gripper_weight,
+    )
     if args.evaluation_protocol == "v2":
         if args.eval_split is None:
             raise ValueError(
@@ -212,6 +227,15 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
         eval_specs = eval_specs[: args.eval_limit]
     if args.policy_type != "mlp" and args.temporal_feature_mode != "legacy_progress_phase":
         raise ValueError("temporal feature modes apply only to MLP policies")
+    if args.hybrid_nn_gripper and args.policy_type != "mlp":
+        raise ValueError("--hybrid-nn-gripper requires --policy-type mlp (A1 compositor)")
+    if args.arm_only_mlp and not args.hybrid_nn_gripper:
+        raise ValueError("--arm-only-mlp requires --hybrid-nn-gripper (A2 under frozen NN gripper)")
+    match_contract = str(args.match_contract)
+    match_indices, match_names = resolve_match_contract(match_contract)
+    hybrid_recipe = None
+    if args.hybrid_nn_gripper:
+        hybrid_recipe = HYBRID_RECIPE_A2 if args.arm_only_mlp else HYBRID_RECIPE_A1
     manifest = ExperimentManifest.start(
         repo_root=PROJECT_ROOT,
         argv=command,
@@ -219,7 +243,15 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
             "training_seeds": [int(seed) for seed in seed_values],
             "demo_repeats": args.demo_repeats,
         },
-        metadata={"evaluation_protocol": protocol_metadata},
+        metadata={
+            "evaluation_protocol": protocol_metadata,
+            "loss_profile": None if resolved_profile is None else resolved_profile.to_dict(),
+            "research_parity_frontier": RESEARCH_PARITY_FRONTIER,
+            "hybrid_nn_gripper": bool(args.hybrid_nn_gripper),
+            "hybrid_recipe": hybrid_recipe,
+            "match_contract": match_contract if args.hybrid_nn_gripper else None,
+            "arm_only_mlp": bool(args.arm_only_mlp),
+        },
     )
     output_dir = args.output_dir
     demo_dir = args.demo_dir or output_dir / "scripted_pickup_demos"
@@ -270,7 +302,7 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
                 }
                 model_path = model_dir / f"{action_space}_nearest_neighbor_bc{seed_suffix}.npz"
             else:
-                policy, fit_summary = fit_mlp_policy(
+                mlp_policy, fit_summary = fit_mlp_policy(
                     dataset,
                     hidden_sizes=tuple(args.hidden_sizes),
                     epochs=args.epochs,
@@ -279,17 +311,60 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
                     weight_decay=args.weight_decay,
                     seed=seed,
                     temporal_feature_mode=args.temporal_feature_mode,
-                    gripper_loss_weight=args.gripper_loss_weight,
-                    close_phase_gripper_weight=args.close_phase_gripper_weight,
+                    gripper_loss_weight=gripper_loss_weight,
+                    close_phase_gripper_weight=close_phase_gripper_weight,
+                    loss_profile=(
+                        None if resolved_profile is None else resolved_profile.name
+                    ),
+                    arm_only_mlp=bool(args.arm_only_mlp),
                 )
-                model_path = model_dir / f"{action_space}_mlp_bc{seed_suffix}.npz"
+                if args.hybrid_nn_gripper:
+                    nn_policy = fit_nearest_neighbor_policy(
+                        dataset,
+                        k=args.k,
+                        temperature=args.temperature,
+                        match_contract=match_contract,
+                    )
+                    policy = HybridNNGripperMLPPolicy(
+                        mlp_policy,
+                        nn_policy,
+                        match_feature_indices=match_indices,
+                        match_feature_names=match_names,
+                        match_contract=match_contract,
+                        recipe=hybrid_recipe or HYBRID_RECIPE_A1,
+                        arm_only_mlp=bool(args.arm_only_mlp),
+                    )
+                    fit_summary = {
+                        **fit_summary,
+                        "policy_type": HYBRID_POLICY_TYPE,
+                        "hybrid_nn_gripper": True,
+                        "hybrid_recipe": hybrid_recipe,
+                        "arm_only_mlp": bool(args.arm_only_mlp),
+                        "nn_k": int(args.k),
+                        "nn_temperature": float(args.temperature),
+                        "match_contract": match_contract,
+                        "match_feature_indices": [
+                            int(i) for i in match_indices.tolist()
+                        ],
+                        "match_feature_names": list(match_names),
+                        "mlp_policy_type": fit_summary.get("policy_type", "mlp_bc"),
+                    }
+                    model_path = (
+                        model_dir
+                        / f"{action_space}_{HYBRID_POLICY_TYPE}{seed_suffix}.json"
+                    )
+                else:
+                    policy = mlp_policy
+                    model_path = model_dir / f"{action_space}_mlp_bc{seed_suffix}.npz"
             policy.evaluation_config_hash = (
                 str(protocol_metadata["config_sha256"]) if protocol_metadata else ""
             )
             policy.evaluation_protocol_version = (
                 int(protocol_metadata["version"]) if protocol_metadata else 0
             )
-            policy.save(model_path)
+            saved_path = policy.save(model_path)
+            if saved_path is not None and Path(saved_path) != Path(model_path):
+                model_path = Path(saved_path)
 
             train_summary = {
                 "action_space": action_space,
@@ -322,7 +397,8 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
                 ),
                 "policy_limit_note": (
                     "Nearest-neighbor is a replay-style baseline; MLP is a compact "
-                    "state BC baseline using its recorded input contract. Both must be judged by held-out "
+                    "state BC baseline using its recorded input contract. Hybrid "
+                    "NN-gripper + MLP-arm (H-EE-014) is a compositor judged by held-out "
                     "MuJoCo rollout success, not by supervised loss alone."
                 ),
             }
@@ -433,12 +509,27 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
     combined["registered_eval_total_per_seed"] = registered_eval_total
     combined["explicit_eval_limit"] = args.eval_limit
     combined["temporal_feature_mode"] = args.temporal_feature_mode
-    combined["gripper_loss_weight"] = float(args.gripper_loss_weight)
+    combined["gripper_loss_weight"] = float(gripper_loss_weight)
     combined["close_phase_gripper_weight"] = (
         None
-        if args.close_phase_gripper_weight is None
-        else float(args.close_phase_gripper_weight)
+        if close_phase_gripper_weight is None
+        else float(close_phase_gripper_weight)
     )
+    combined["loss_profile"] = None if resolved_profile is None else resolved_profile.name
+    combined["loss_profile_contract"] = (
+        None if resolved_profile is None else resolved_profile.to_dict()
+    )
+    combined["research_parity_frontier"] = RESEARCH_PARITY_FRONTIER
+    combined["hybrid_nn_gripper"] = bool(args.hybrid_nn_gripper)
+    combined["hybrid_recipe"] = hybrid_recipe
+    combined["arm_only_mlp"] = bool(args.arm_only_mlp)
+    combined["match_contract"] = match_contract if args.hybrid_nn_gripper else None
+    if args.hybrid_nn_gripper:
+        combined["policy_type"] = HYBRID_POLICY_TYPE
+        combined["nn_k"] = int(args.k)
+        combined["nn_temperature"] = float(args.temperature)
+        combined["match_feature_indices"] = [int(i) for i in match_indices.tolist()]
+        combined["match_feature_names"] = list(match_names)
     combined["shielded_policy"] = bool(args.gripper_close_guard)
     combined["action_gains"] = {
         "joint_delta": args.joint_action_gain
@@ -488,6 +579,34 @@ def main() -> None:
     )
     parser.add_argument("--max-steps", type=int, default=3200)
     parser.add_argument("--policy-type", choices=("nearest", "mlp"), default="mlp")
+    parser.add_argument(
+        "--hybrid-nn-gripper",
+        action="store_true",
+        help=(
+            "H-EE-014 A1 compositor: train MLP as usual, fit NN on the same demos, "
+            "and at rollout replace only the gripper dim with NN. Requires "
+            "--policy-type mlp. Does not change MLP loss unless --arm-only-mlp."
+        ),
+    )
+    parser.add_argument(
+        "--match-contract",
+        choices=MATCH_CONTRACT_NAMES,
+        default=DEFAULT_MATCH_CONTRACT,
+        help=(
+            "Named NN match-set contract for hybrid gripper retrieval. "
+            "Default 'historical' preserves H-EE-014 indices. "
+            "'match_relative_ee' is the H-EE-022 secondary contract."
+        ),
+    )
+    parser.add_argument(
+        "--arm-only-mlp",
+        action="store_true",
+        help=(
+            "H-EE-023 A2: zero MLP gripper residual weight during train while "
+            "rollout gripper still comes from the hybrid NN. Requires "
+            "--hybrid-nn-gripper. Historical match contract unless --match-contract set."
+        ),
+    )
     parser.add_argument(
         "--temporal-feature-mode",
         choices=("legacy_progress_phase", "none", "env_derived_phase"),
@@ -544,12 +663,23 @@ def main() -> None:
         help="Use executable policy labels by default; raw labels are observed transitions.",
     )
     parser.add_argument(
+        "--loss-profile",
+        choices=LOSS_PROFILE_NAMES,
+        default=None,
+        help=(
+            "Named frozen loss profile for H-EE-021 decomposition "
+            "(uniform / global_gripper / transition_gripper / combined_h_ee_008). "
+            "Overrides --gripper-loss-weight and --close-phase-gripper-weight."
+        ),
+    )
+    parser.add_argument(
         "--gripper-loss-weight",
         type=float,
         default=1.0,
         help=(
             "H-EE-008: multiply MSE on the gripper action dim. Default 1.0 preserves "
-            "uniform MSE; use >1 to upweight gripper timing."
+            "uniform MSE; use >1 to upweight gripper timing. Ignored when "
+            "--loss-profile is set."
         ),
     )
     parser.add_argument(
@@ -558,7 +688,8 @@ def main() -> None:
         default=None,
         help=(
             "H-EE-008: optional override gripper MSE weight on demo phases "
-            "grasp_align and close_gripper. Default None uses --gripper-loss-weight."
+            "grasp_align and close_gripper. Default None uses --gripper-loss-weight. "
+            "Ignored when --loss-profile is set."
         ),
     )
     parser.add_argument(

@@ -19,9 +19,11 @@ from svla.pickup_task import (
     PickupTaskEvaluator,
     default_trial_specs,
 )
+from svla.core.action_space import get_action_representation
 from svla.state_bc import TaskContext, load_policy, observation_to_features
 
 from train_state_bc import evaluation_specs
+from svla.evaluation_protocol import load_evaluation_protocol
 
 
 def _overlay(frame: np.ndarray, lines: list[str]) -> None:
@@ -95,6 +97,8 @@ def _glyph(char: str) -> list[str]:
 def _trial_specs(eval_mode: str) -> dict:
     if eval_mode == "default":
         specs = default_trial_specs(repeats=1)
+    elif eval_mode == "validation":
+        specs = load_evaluation_protocol().specs("validation", repeats=1)
     else:
         specs = evaluation_specs(eval_mode, train_grid="default", repeats=1)
     return {spec.trial_id: spec for spec in specs}
@@ -158,6 +162,7 @@ def render_rollout(
     cursor = 0
     frames = 0
     frame_stride = 4
+    representation = get_action_representation(policy.action_space)
 
     with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
         if process.stdin is None:
@@ -175,23 +180,10 @@ def render_rollout(
             cursor = max(cursor + 1, nearest_index + 1)
             executed_action = action.copy()
 
-            if policy.action_space == "joint_delta":
-                _, _, status = env.step_joint_delta_action(executed_action[:5], executed_action[5])
-            elif policy.action_space == "ee_tool_delta":
-                _, _, status = env.step_ee_tool_delta_action(
-                    executed_action[:3],
-                    executed_action[3:5],
-                    executed_action[5],
-                )
-                clipped_translation += int(status.clipped_translation)
-            else:
-                raise ValueError(f"unknown action space: {policy.action_space}")
-
-            controller_failed = (
-                status["controller_failed"]
-                if isinstance(status, dict)
-                else status.controller_failed
-            )
+            _, _, status = representation.execute(env, executed_action)
+            telemetry = representation.telemetry(status)
+            clipped_translation += int(telemetry["clipped_translation"])
+            controller_failed = telemetry["controller_failed"]
             if controller_failed:
                 break
 
@@ -285,9 +277,12 @@ def main() -> None:
     parser.add_argument("--trial-id", type=int, default=1)
     parser.add_argument(
         "--eval-mode",
-        choices=("default", "final", "audit", "test", "heldout"),
+        choices=("default", "final", "audit", "test", "heldout", "validation"),
         default="default",
-        help="Trial grid for --trial-id (BC physics audit uses final, ids 4001+).",
+        help=(
+            "Trial grid for --trial-id (BC physics audit uses final, ids 4001+; "
+            "protocol-v2 validation uses validation, ids 6001+)."
+        ),
     )
     parser.add_argument(
         "--output",

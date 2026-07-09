@@ -168,12 +168,30 @@ needs review. Do not overclaim from passing tests alone.
   41/120. EE early-close rose 5→29; the lower preclose-contact and constraint exposure did
   not improve raw event order or seed reliability. Final not accessed. Evidence:
   `outputs/h_ee_003_separate_gripper_head_validation/h_ee_003_comparison.json`.
+- **2026-07-09:** **H-EE-021 confirmed** — H-EE-008 gain is mostly **global gripper 5×**
+  (EE 31→49), not transition 10× (EE 38). Combined EE 50 ≈ global; joint still wants
+  combined (84 vs global 76). Residual under all profiles is **reopen/gripper flips**,
+  not early-close. No EE profile meets frontier; final closed. Next: H-EE-014 (NN
+  gripper + MLP arm). Evidence: `outputs/h_ee_021_loss_decomposition/`.
+- **2026-07-09:** **H-EE-014 confirmed on validation** — hybrid NN gripper + MLP arm
+  under `global_gripper` (A1 compositor): EE 49→**62**/120, EO 60→**79**, reopen
+  **155→0**, worst seed 4→**9**/24; joint 76→**97**/120. All pre-registered pass bars
+  met. Residual EO is **missing_lift + early_close** (not reopen; flips=1.0). Still
+  short of research parity frontier; final closed. Evidence:
+  `outputs/h_ee_014_nn_gripper_global_validation/`.
+- **2026-07-09:** **Post-H-EE-014 residual program complete (SP0–SP3)** — SP0 visual freeze
+  done. **H-EE-022 rejected** (match_relative_ee early_close 11→11). **H-EE-023 rejected**
+  (A2 arm-only EE 67/120, missing_lift worse, worst seed 6). **H-EE-024 diagnosed**
+  (impulse-dominant almost-wins; no train yet). Best EE remains hybrid A1 **62/120**;
+  final closed; Phase 6b blocked. Scoreboard:
+  `outputs/post_h_ee_014_residual_scoreboard.json`. Report:
+  `reports/2026-07-09-post-h-ee-014-residual-progress.md`.
 
 ## YOU ARE HERE
 
-**Working branch:** `codex/phase6a-vision-infra` — all Phase 6a implementation and
-experiments happen here.
-Do not edit `main` directly unless explicitly merging or cherry-picking a release.
+**Integration target:** `main` contains the audited Phase 6a infrastructure and the
+post-H-EE-014 residual program after the 2026-07-09 audit merge. Create a focused research
+branch before the next causal experiment; do not run new hypotheses directly on `main`.
 
 **Current phase:** Phase 6a infrastructure is implemented on top of the closed scripted
 simulator/task gate. The learned-policy comparison gate remains **open/blocked**, and
@@ -446,11 +464,18 @@ Phase 5 follow-up (not blocking vision infra):
 
 - H-EE-003, H-EE-010, H-EE-011, H-EE-012, H-EE-013, and H-JNT-001 are **rejected**; do not rerun them
   as the default next step.
-- **H-EE-008 confirmed on validation** (gripper-weighted MSE). Prefer this training loss for
-  new state-BC runs. Optional next: registered final under weighted+legacy, or H-EE-016 if
-  more EE seed stability is needed. H-EE-002 remains only partial.
-- Improve joint BC from 42.5% toward a stable per-seed pass rate.
-- Run joint-only pick-place BC first; defer EE pick-place until pickup EE event-order improves.
+- **H-EE-008 / H-EE-021 / H-EE-014 confirmed** ladder: best EE still hybrid A1 +
+  `global_gripper` **62/120** (joint 97/120). Residual still **missing_lift thrash +
+  impulse almost-wins + early-close (vertical)** — not reopen.
+- **Post-014 residual program SP0–SP3 done:** H-EE-022/023 **rejected**; H-EE-024
+  **diagnosed no-train**. Scoreboard: `outputs/post_h_ee_014_residual_scoreboard.json`.
+  - **Next open:** SP2b/H-EE-015 (early_close still 11), SP4 H-EE-007/H-EE-002 under hybrid,
+    H-EE-017 if non-Markov, SP6 joint pick-place optional.
+  - **Still closed/blocked:** final holdout; Phase 6b vision BC.
+- One causal change per train; compare against hybrid A1 baseline (62), not pure MLP.
+- Do not re-run H-EE-022 match-set or H-EE-023 A2 as defaults; do not prioritize
+  H-EE-016/018/019 or pure gripper MSE reweight.
+- Joint-only pick-place BC is optional **SP6** (joint hybrid 97/120); defer EE pick-place.
 
 When evaluating policies, keep observations, demonstrations, task initialization, and
 success metrics identical across action spaces. Otherwise the result will not answer the

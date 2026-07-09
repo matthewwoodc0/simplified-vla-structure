@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.analyze_policy_failures import analyze_rows, load_jsonl, render_markdown
+from analysis.policy_failures import analyze_rows, load_jsonl, render_markdown
 
 
 def _row(
