@@ -154,6 +154,20 @@ needs review. Do not overclaim from passing tests alone.
   capture, scripted pickup RGB dataset export, manifest validation, and MP4 preview
   plumbing are present. This does not change the Phase 5 evidence ladder and does not open
   Phase 6b policy/VLA work.
+- **2026-07-08:** **H-EE-013 rejected** — env-derived phase (train+rollout, same protocol-v2
+  validation contract as H-EE-012) made EE worse (19/120 vs legacy 31/120) and joint worse
+  (23/120 vs 53/120). Early-close and reopen rose sharply; do not access final under this
+  contract. Evidence: `outputs/h_ee_013_env_phase_validation/state_bc_summary.json`.
+- **2026-07-08:** **H-EE-008 confirmed on validation** — gripper-weighted MSE (5× gripper,
+  10× on grasp_align/close_gripper) under legacy temporal contract: EE 50/120 (+19 vs 31),
+  event-order 55/120 (+17); joint 84/120 (+31 vs 53). Preclose EE contact 583→50. Seed
+  instability remains (EE per-seed 22,9,11,2,6). Final not accessed; learned-policy release
+  gates still not met. Evidence: `outputs/h_ee_008_gripper_weighted_validation/`.
+- **2026-07-09:** **H-EE-003 rejected** — a separate binary gripper classifier (same
+  weighted legacy protocol-v2 validation contract) regressed EE to 34/120 and joint to
+  41/120. EE early-close rose 5→29; the lower preclose-contact and constraint exposure did
+  not improve raw event order or seed reliability. Final not accessed. Evidence:
+  `outputs/h_ee_003_separate_gripper_head_validation/h_ee_003_comparison.json`.
 
 ## YOU ARE HERE
 
@@ -430,10 +444,11 @@ Phase 6a vision infrastructure follow-up:
 
 Phase 5 follow-up (not blocking vision infra):
 
-- H-EE-010, H-EE-011, H-EE-012, and H-JNT-001 are **rejected**; do not rerun them as the
-  default next step.
-- Test env-derived phase (H-EE-013) or a separate/weighted gripper head (H-EE-003/008) under
-  the same registered protocol. H-EE-002 remains only partial; its causal ablation is untested.
+- H-EE-003, H-EE-010, H-EE-011, H-EE-012, H-EE-013, and H-JNT-001 are **rejected**; do not rerun them
+  as the default next step.
+- **H-EE-008 confirmed on validation** (gripper-weighted MSE). Prefer this training loss for
+  new state-BC runs. Optional next: registered final under weighted+legacy, or H-EE-016 if
+  more EE seed stability is needed. H-EE-002 remains only partial.
 - Improve joint BC from 42.5% toward a stable per-seed pass rate.
 - Run joint-only pick-place BC first; defer EE pick-place until pickup EE event-order improves.
 

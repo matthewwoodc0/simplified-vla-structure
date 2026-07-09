@@ -136,17 +136,17 @@ causally ruled out. See the ladder in `AGENTS.md`.
 |----|--------|-------|-----------------|------|--------|
 | H-EE-001 | untested | **Open-loop phase clock drift:** rollout advances `cursor` each step and maps it to demo phase lengths; when motion lags demos, the policy may index into `close_gripper` at the wrong physical state. | `state_bc.py` derives MLP phase from `_phase_at_cursor`, not live contact. Constraint exposure is substantial, but the registered results do not establish a causal link to event failure. | Train/evaluate an env-derived phase contract on protocol-v2 validation before any new final access. | |
 | H-EE-002 | partial | **EE saturation lag:** controller constraints interact with the learned EE trajectory and event sequence. | Raw final EE has 21.3% joint-limit exposure and 33.5% clipped-joint exposure; labels use feasible deltas from telemetry. | Causal lower-gain or cap ablation on protocol-v2 validation. | **Simple monotonic causality is not supported.** In registered raw final EE rollouts, saturation is weakly inversely associated with event failure (`r=-0.118`) and rollout failure (`r=-0.166`). Constraint exposure remains real, but may be consequence, exposure time, or an interaction. Evidence: `outputs/phase5_v2_final_selected_legacy/eval/policy_failure_analysis.json`. |
-| H-EE-003 | untested | **Gripper coupled in one MLP head:** a single 6-D output mixes Cartesian and gripper; arm error states map to multiple gripper label modes in training, so the network closes/opens at wrong states. | Gripper is dim 5 of `ee_tool_delta`; MSE treats all dims equally. Joint 6-D may factor gripper timing with smoother arm coords. | Train gripper-only head (or thresholded schedule) on same demos; compare event-order rate. | |
+| H-EE-003 | rejected | **Gripper coupled in one MLP head:** a single 6-D output mixes Cartesian and gripper; arm error states map to multiple gripper label modes in training, so the network closes/opens at wrong states. | The protocol-v2 training labels are exactly binary for both spaces (open `1`: 15,712 / 48,112; close `0`: 32,400 / 48,112; no intermediate values). H-EE-008 improved weighted MSE but EE seeds remained unstable. | Same H-EE-008 legacy temporal/data/128×128/5-seed validation contract, but split only the output: 5-D arm MSE head plus sigmoid binary gripper head (weighted BCE 5× / close 10×), raw rollout only. | **Rejected on validation.** EE success fell 50→34/120 and event order 55→50/120; early-close rose 5→29. EE per-seed successes were 9,1,7,6,11: lower variance only because all seeds were poor, not improved reliability. Joint also collapsed 84→41/120, event order 90→48, and physical sanity 100→73. No controller failures; final was not accessed. Evidence: `outputs/h_ee_003_separate_gripper_head_validation/h_ee_003_comparison.json`. |
 | H-EE-004 | partial | **Early-close geometry threshold:** gate requires close command within 15 mm; some policies trigger close from the wrong state. | Raw final has 2 EE and 11 joint early-close trials. The guard removes both counts without materially improving success. | Analyze close-start distance jointly with pre-close contact and reopen behavior; do not relax the release gate. | Early-close alone is not the main blocker: guarded EE remains 28/120 and guarded joint reaches only 55/120. |
 | H-EE-005 | untested | **Gripper oscillation → reopen:** policy outputs open commands after partial close when phase clock or state mismatch; `_episode_reopen_events` increments. | Failure clips (`ee_bc_failure.mp4`, trial 4005 seed 1) show reopen before valid sequence. | Plot gripper command vs `gripper_open` state on failure rollouts; count sign changes near close phase. | |
 | H-EE-006 | rejected | **Yaw-specific held-out difficulty:** the historical `yaw_-18` gap is the main EE failure cluster. | The legacy 4001+ grid suggested a yaw gap. | Check the registered final bucket breakdown before collecting targeted yaw data. | **Not reproduced.** Registered raw EE success is 9/40 at `yaw_-18`, 9/40 at `yaw_0`, and 10/40 at `yaw_18`; yaw-targeted data is not justified by this result. |
 | H-EE-007 | untested | **Label asymmetry:** `policy_labels.ee_tool_delta` are reconstructed feasible Cartesian deltas; joint labels are direct joint-target errors. Extra label noise targets EE timing. | `demo_recorder._policy_labels` uses `feasible_delta_xyz/rotvec`; joint uses `joint_target_error`. | Compare NN replay on raw `labels.ee_tool_delta` vs `policy_labels.ee_tool_delta`; if only policy_labels replay clean, noise is in reconstruction path. | |
-| H-EE-008 | untested | **Loss underweights sequencing:** uniform MSE on all action dimensions does not penalize gripper timing errors that cause gate failures. | BC training has no event-order-aware loss. | Weight gripper dim higher near `close_gripper` phase in training, or auxiliary classifier for "should close"; re-eval final grid. | |
+| H-EE-008 | confirmed | **Loss underweights sequencing:** uniform MSE on all action dimensions does not penalize gripper timing errors that cause gate failures. | BC training has no event-order-aware loss. | Weight gripper dim (5×) and close phases grasp_align/close_gripper (10×) under protocol-v2 validation with legacy temporal contract; compare EE event-order/success vs legacy 31/120. | **Confirmed on validation.** Gripper-weighted MSE (5× / close 10×), same legacy temporal contract + registered hyperparams. EE 50/120 (+19 vs 31) and event-order 55/120 (+17 vs 38); early_close flat at 5; preclose 583→50; reopen 190→142. Joint 84/120 (+31 vs 53), event-order 90/120, physical-sanity 100/120. Per-seed EE still unstable (22,9,11,2,6). Pass bar met on EE success; joint did not collapse. Final not accessed. Evidence: `outputs/h_ee_008_gripper_weighted_validation/`. Report: `reports/2026-07-08-h-ee-008-gripper-weighted-mse.md`. |
 | H-EE-009 | untested | **Progress features train on demo time but rollout time diverges:** MLP gets progress/phase one-hot at train time from demo `step_index`; at rollout, progress is cursor/demo-length ratio while physical phase lags. | `fit_mlp_policy` stacks progress + phase from demos; rollout `_phase_at_cursor` uses training `group_phase_lengths`. | Train with **normalized phase_step only** (no global cursor) and/or add `gripper_object_distance` bins; compare EE event order. | |
 | H-EE-010 | rejected | **No-cursor rollout ablation:** removing open-loop `cursor` (and MLP progress/phase inputs at inference) lets proprioception drive gripper timing closed-loop, improving EE `event_order_valid` without more demos or vision. | State obs already includes contact, gripper, object−EE offset; cursor forces demo-time indexing that desyncs when EE saturates (see “Why a step counter” below). | Inference-only ablation: zero progress/phase features, do not advance `cursor`. EE MLP seeds 0–2, final grid 72 trials. Pass bar: ≥15 pp `event_order_valid` or ≥10 pp success. | **Failed badly.** Baseline rerun 14/72 success (37.5% event-order). Ablation **0/72** success, **1/72** event-order, **24** `early_close`. Policy trained *with* progress/phase; zeroing them at inference is OOD — not a fair closed-loop fix without retraining. Evidence: `outputs/h_ee_010_no_cursor_ablation.json`. Code reverted. |
 | H-EE-011 | rejected | **Gripper distance gate at rollout:** suppress close commands until `gripper_object_distance` ≤15 mm. | Proprioception exposes distance and the guard can remove structurally early close commands without retraining. | Symmetric guarded diagnostic on the selected byte-identical models. Pass bar: ≥10 pp success or ≥15 pp event-order vs raw. | **Rejected.** The guard suppressed 507 EE close steps and removed 2 early-close trials, but success stayed 28/120 and event order stayed 38/120; pre-close contact stayed 741 and reopen events rose 196→198. |
 | H-EE-012 | rejected | **Retrain without progress/phase + explicit distance:** cursor-free state BC improves the shared action-space comparison. | H-EE-010 showed inference-only stripping was unfair, so the model was retrained for the new input contract. | Registered validation, five seeds, same architecture/data for both action spaces. | **Rejected.** EE changed 31/120→32/120 while event validity declined and early-close rose 5→24; joint collapsed 53/120→18/120. The shared legacy contract was selected before final access. |
-| H-EE-013 | untested | **Env-derived phase at rollout:** feed MLP progress/phase from live contact, lift, and distance bins instead of `cursor` / demo phase lengths. | Extends H-EE-001/009 without zeroing phase features (H-EE-010 lesson). Maps env state → phase index + phase_progress. | Implement env phase estimator in `rollout_policy`; optional light finetune if OOD. Compare EE event-order on final grid. | |
+| H-EE-013 | rejected | **Env-derived phase at train+rollout:** feed MLP progress/phase from live contact, lift, and distance bins instead of `cursor` / demo phase lengths. | Extends H-EE-001/009 without zeroing phase features (H-EE-010 lesson). Maps env state → phase index + phase_progress with the same contract at train and eval. | Implement `env_derived_phase` temporal mode; train/evaluate under protocol-v2 validation (5 seeds × 24). Compare success, event-order, physical-sanity vs registered legacy. | **Rejected.** Same registered hyperparams (128×128, 300 ep, 5 seeds). EE 19/120 vs legacy 31/120; event-order 20/120 vs 38/120; early_close 40 vs 5; reopen 375 vs 190. Joint 23/120 vs legacy 53/120 (better than cursor-free 18/120 but still far below legacy). Combined 42/240 vs legacy 84 and cursor-free 50. Preclose contact fell (EE 15 vs 583) but early-close/reopen worsened — not a timing fix. Evidence: `outputs/h_ee_013_env_phase_validation/state_bc_summary.json`. Report: `reports/2026-07-08-h-ee-013-env-phase.md`. |
 | H-EE-014 | untested | **Hybrid NN gripper + MLP arm:** nearest-neighbor on `MATCH_FEATURE_INDICES` for gripper dim only; MLP for Cartesian dims. | NN matches state-local demo timing on object-relative features (`state_bc.py` `MATCH_FEATURE_INDICES`); timing may be more replay-stable than global MLP phase clock. | Rollout compositor or two-head export; no full retrain if NN policy exists for same demos. | |
 | H-EE-015 | untested | **Scripted gripper schedule + learned arm:** expert/task defines when close is legal; policy outputs arm deltas only (or gripper overridden by FSM). | Shrinks ML problem to motion; controller-first ethos. Event order becomes structural. | Phase FSM from env distance/contact; BC on arm only; eval gates unchanged. | |
 | H-EE-016 | untested | **Close-phase demo oversampling:** weight loss or duplicate samples around `grasp_align` → `close_gripper` boundary. | Failures cluster at phase transitions; uniform stride under-represents close timing. | 2–5× sample weight on close phases; one seed EE retrain; event-order rate vs baseline. | |
@@ -166,15 +166,15 @@ gripper objective, and select them on validation.
 
 | ID | Idea | Retrain? | Effort |
 |----|------|----------|--------|
-| H-EE-003 | **Separate gripper head** (classifier or 1-dim head) | Yes | Medium |
-| H-EE-013 | **Env-derived phase** feeds existing MLP phase inputs | Finetune optional | Medium |
+| H-EE-003 | **Separate binary gripper head** | Yes (rejected on validation) | Medium |
+| H-EE-013 | **Env-derived phase** feeds existing MLP phase inputs | Yes (rejected on validation) | Medium |
 
 ### Tier 2 — Labels / controller / loss
 
 | ID | Idea | Retrain? | Effort |
 |----|------|----------|--------|
 | H-EE-002 | Lower EE **gain** or saturation in labels/rollout | Yes | Medium |
-| H-EE-008 | **Gripper-weighted** or phase-aware MSE | Yes | Low–medium |
+| H-EE-008 | **Gripper-weighted** or phase-aware MSE | Yes (confirmed on validation) | Low–medium |
 | H-EE-007 | Compare raw `labels` vs `policy_labels` replay | No | Low |
 | H-EE-014 | **NN gripper + MLP arm** hybrid | Maybe | Medium |
 
@@ -199,6 +199,7 @@ gripper objective, and select them on validation.
 | H-EE-010 inference-only no-cursor | **Rejected** — 0/72 success |
 | H-EE-011 distance guard | **Rejected** — EE success/event order unchanged on registered diagnostic |
 | H-EE-012 cursor-free state MLP | **Rejected** — EE unchanged in practice; joint validation collapsed |
+| H-EE-013 env-derived phase | **Rejected** — EE 19/120 and joint 23/120 on validation; worse event-order and early-close |
 | H-JNT-001 joint distance guard | **Rejected** — +4/120 success, worse physical-sanity rate, unstable seeds |
 | H-EE-006 yaw-targeted data | **Rejected for current evidence** — registered yaw buckets are nearly equal |
 | 10× more demos without a coverage hypothesis | Costly and non-falsifiable; registered pose buckets should guide any targeted data test |
@@ -209,13 +210,11 @@ gripper objective, and select them on validation.
 
 ## Hypothesis priority (suggested order)
 
-1. **H-EE-013** — train/evaluate env-derived phase on validation; do not retrofit it only at inference.
-2. **H-EE-003 / H-EE-008** — separate gripper head or weighted/auxiliary sequencing loss.
-3. **H-EE-014** — hybrid state-local gripper decision with learned arm output.
-4. **H-EE-002** — causal saturation/gain ablation; descriptive correlation alone is insufficient.
-5. **H-EE-016** — close-transition oversampling under the same validation contract.
-6. **H-EE-017 / H-EE-015** — temporal history or an explicitly hybrid FSM-gripper baseline.
-7. **H-VIS-001** — only after Phase 5 policy scope is resolved; vision work was not started here.
+1. **H-EE-008 follow-up** — optional registered **final** access under gripper-weighted + legacy temporal contract (validation confirmed; final still frozen until explicitly run).
+2. **H-EE-016** — close-transition oversampling under the same weighted contract.
+3. **H-EE-014 / H-EE-002** — hybrid NN gripper or causal saturation ablation.
+4. **H-EE-017 / H-EE-015** — temporal history or FSM gripper baseline.
+5. **H-VIS-001** — only after Phase 5 policy scope is resolved; vision work was not started here.
 
 ---
 
@@ -236,6 +235,9 @@ gripper objective, and select them on validation.
 | 2026-07-02 | H-EE-002 | Registered raw-final correlation analysis | **Partial** — EE saturation weakly inversely associated with event and rollout failure; causal gain/cap ablation remains untested | `outputs/phase5_v2_final_selected_legacy/eval/policy_failure_analysis.json` |
 | 2026-07-02 | — | Final source-matched scripted/replay/readiness bundle | **Pass** — 85 tests; pickup 36/36; pickup replay 18/18 per space; pick-place 6/6; pick-place replay 6/6 per space; readiness 288/288 | `outputs/phase5_baseline_final/phase5_baseline_v2_aggregate.json` |
 | 2026-07-08 | — | Phase 6a scripted RGB dataset infrastructure | **Implemented, not policy evidence** — fixed-camera RGB capture, NPZ frame arrays, action-space-neutral manifests, validator, MP4 preview path, and compatibility tests pass; no vision policy or VLA training started | `outputs/phase6a_vision_sample/vision_manifest.json` |
+| 2026-07-08 | H-EE-013 | Env-derived phase temporal mode on protocol-v2 validation (128×128, 300 ep, 5 seeds × 24) | **Rejected** — EE 19/120 (event-order 20, early_close 40) vs legacy 31/120 (38, 5); joint 23/120 vs 53/120; combined 42/240 vs 84. Not a fair open-loop-clock fix under this estimator | `outputs/h_ee_013_env_phase_validation/state_bc_summary.json`, `reports/2026-07-08-h-ee-013-env-phase.md` |
+| 2026-07-08 | H-EE-008 | Gripper-weighted / close-phase MSE (5× / 10×) on protocol-v2 validation, legacy temporal | **Confirmed** — EE 50/120 (+19), event-order 55/120 (+17); joint 84/120 (+31). Preclose EE 583→50. Seed instability remains. Final not accessed | `outputs/h_ee_008_gripper_weighted_validation/`, `reports/2026-07-08-h-ee-008-gripper-weighted-mse.md` |
+| 2026-07-09 | H-EE-003 | Separate 5-D arm MSE + 1-D binary gripper classifier under the H-EE-008 weighted legacy contract, protocol-v2 validation | **Rejected** — binary labels did justify classification, but raw EE fell 50→34/120 with early-close 5→29; joint fell 84→41/120. Lower EE preclose contact (50→0) and constraint exposure did not translate into event-order or success gains. Final not accessed | `outputs/h_ee_003_separate_gripper_head_validation/h_ee_003_comparison.json`, `reports/2026-07-09-h-ee-003-separate-gripper-head.md` |
 
 *(Add a row when you run a hypothesis test — do not infer from loss curves alone.)*
 
@@ -259,9 +261,10 @@ Training stacks `(observation, progress, phase)` → action from demos where `st
 trajectory drifts — that is the suspected failure mode (H-EE-001), independent of cameras.
 
 Tested state-only alternatives did not solve the problem: inference-only cursor drop
-(**H-EE-010**), the distance guard (**H-EE-011**), and cursor-free retraining
-(**H-EE-012**) are **rejected**. Remaining state-only candidates include env-derived phase
-(**H-EE-013**) and a separate/weighted gripper objective (**H-EE-003/008**).
+(**H-EE-010**), the distance guard (**H-EE-011**), cursor-free retraining
+(**H-EE-012**), and env-derived phase (**H-EE-013**) are **rejected**. Remaining
+state-only candidates include the confirmed weighted gripper objective (**H-EE-008**),
+hybrid NN gripper (**H-EE-014**), and temporal history / FSM gripper (**H-EE-017/015**).
 
 ---
 

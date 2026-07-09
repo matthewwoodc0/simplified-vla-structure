@@ -29,8 +29,19 @@ PHASE_LABELS = (
     "lift",
     "hold",
 )
-TEMPORAL_FEATURE_MODES = ("legacy_progress_phase", "none")
+TEMPORAL_FEATURE_MODES = ("legacy_progress_phase", "none", "env_derived_phase")
 MATCH_FEATURE_INDICES = np.array([18, 19, 20, 28, 29, 30], dtype=int)
+
+# Env-derived phase thresholds (meters / gripper-open fraction). Tuned against
+# scripted pickup demos so distance/contact/lift bins recover a monotonic
+# phase sequence without using demo step counters.
+ENV_PHASE_HOLD_LIFT = 0.028
+ENV_PHASE_LIFT_START = 0.002
+ENV_PHASE_CLOSE_DISTANCE = 0.025
+ENV_PHASE_GRASP_DISTANCE = 0.022
+ENV_PHASE_APPROACH2_DISTANCE = 0.040
+ENV_PHASE_APPROACH1_DISTANCE = 0.058
+ENV_PHASE_CLOSE_OPEN_THRESHOLD = 0.97
 
 
 @dataclass(frozen=True)
@@ -371,11 +382,21 @@ class MLPBCPolicy:
             distance = _gripper_object_distance_from_features(raw)
             normalized_distance = (distance - self.distance_mean) / self.distance_scale
             return np.concatenate((base, np.array([normalized_distance], dtype=float)))
-        max_progress = max(1.0, float(self.group_max_progress[self._group_index[group_key]]))
-        phase_index, phase_progress = self._phase_at_cursor(group_key, cursor)
+        group_index = self._group_index[group_key]
+        max_progress = max(1.0, float(self.group_max_progress[group_index]))
+        if self.temporal_feature_mode == "env_derived_phase":
+            phase_index, phase_progress = estimate_env_phase(raw)
+            progress = env_phase_global_progress(
+                phase_index,
+                phase_progress,
+                self.group_phase_lengths[group_index],
+                max_progress,
+            )
+        else:
+            phase_index, phase_progress = self._phase_at_cursor(group_key, cursor)
+            progress = np.clip(float(cursor) / max_progress, 0.0, 1.5)
         phase_one_hot = np.zeros(len(PHASE_LABELS), dtype=float)
         phase_one_hot[phase_index] = 1.0
-        progress = np.clip(float(cursor) / max_progress, 0.0, 1.5)
         return np.concatenate(
             (
                 base,
@@ -525,6 +546,8 @@ def mlp_policy_feature_names(temporal_feature_mode: str) -> list[str]:
     base = observation_feature_names()
     if temporal_feature_mode == "none":
         return [*base, "gripper_object_distance"]
+    # legacy_progress_phase and env_derived_phase share the same input layout;
+    # only the source of progress/phase values differs (cursor vs env state).
     return [
         *base,
         "progress",
@@ -537,6 +560,108 @@ def mlp_policy_feature_names(temporal_feature_mode: str) -> list[str]:
         "phase_progress_sin_pi",
         "phase_progress_cos_pi",
     ]
+
+
+def estimate_env_phase(observation_features: np.ndarray) -> tuple[int, float]:
+    """Map live observation features to (phase_index, phase_progress).
+
+    Uses contact, lift, gripper opening, and gripper–object distance bins only.
+    Does not use demo cursor, step index, or demo phase lengths. Same function
+    is applied at train time and rollout so the temporal contract is matched.
+    """
+
+    names = observation_feature_names()
+    values = np.asarray(observation_features, dtype=float)
+    if values.shape[-1] < len(names):
+        raise ValueError(
+            f"observation features have length {values.shape[-1]}, expected >= {len(names)}"
+        )
+    grip = float(values[names.index("gripper_open")])
+    dist = float(
+        np.linalg.norm(
+            [
+                values[names.index("object_minus_ee_x")],
+                values[names.index("object_minus_ee_y")],
+                values[names.index("object_minus_ee_z")],
+            ]
+        )
+    )
+    lift = float(values[names.index("object_lift_from_start")])
+    contact = float(values[names.index("gripper_object_contact")]) > 0.5
+
+    if contact and lift >= ENV_PHASE_HOLD_LIFT:
+        phase = "hold"
+        progress = float(np.clip((lift - ENV_PHASE_HOLD_LIFT) / 0.01, 0.0, 1.0))
+    elif contact and grip <= PRECLOSE_OPEN_THRESHOLD and lift >= ENV_PHASE_LIFT_START:
+        phase = "lift"
+        progress = float(np.clip(lift / max(ENV_PHASE_HOLD_LIFT, 1e-6), 0.0, 1.0))
+    elif contact and grip <= PRECLOSE_OPEN_THRESHOLD and lift < ENV_PHASE_LIFT_START:
+        phase = "close_gripper"
+        progress = 1.0
+    elif dist <= ENV_PHASE_CLOSE_DISTANCE and grip < ENV_PHASE_CLOSE_OPEN_THRESHOLD:
+        # Near the object and jaw not fully open → close sequence.
+        # Gating on distance avoids mislabeling far approach steps where the
+        # jaw is still opening from the home pose.
+        phase = "close_gripper"
+        progress = float(
+            np.clip(0.6 * (1.0 - grip) + 0.4 * float(contact), 0.0, 1.0)
+        )
+    elif dist <= ENV_PHASE_GRASP_DISTANCE:
+        phase = "grasp_align"
+        progress = float(np.clip(1.0 - dist / ENV_PHASE_GRASP_DISTANCE, 0.0, 1.0))
+    elif dist <= ENV_PHASE_APPROACH2_DISTANCE:
+        phase = "approach_2"
+        progress = float(
+            np.clip(
+                1.0
+                - (dist - ENV_PHASE_GRASP_DISTANCE)
+                / max(1e-6, ENV_PHASE_APPROACH2_DISTANCE - ENV_PHASE_GRASP_DISTANCE),
+                0.0,
+                1.0,
+            )
+        )
+    elif dist <= ENV_PHASE_APPROACH1_DISTANCE:
+        phase = "approach_1"
+        progress = float(
+            np.clip(
+                1.0
+                - (dist - ENV_PHASE_APPROACH2_DISTANCE)
+                / max(1e-6, ENV_PHASE_APPROACH1_DISTANCE - ENV_PHASE_APPROACH2_DISTANCE),
+                0.0,
+                1.0,
+            )
+        )
+    else:
+        phase = "approach_0"
+        progress = float(
+            np.clip(
+                1.0 - (min(dist, 0.12) - ENV_PHASE_APPROACH1_DISTANCE) / 0.05,
+                0.0,
+                1.0,
+            )
+        )
+    return _phase_index(phase), progress
+
+
+def env_phase_global_progress(
+    phase_index: int,
+    phase_progress: float,
+    phase_lengths: np.ndarray,
+    max_progress: float,
+) -> float:
+    """Map env phase to a global progress scalar on the demo length scale."""
+
+    lengths = np.asarray(phase_lengths, dtype=float)
+    if lengths.shape != (len(PHASE_LABELS),):
+        raise ValueError(
+            f"phase_lengths must have shape ({len(PHASE_LABELS)},), got {lengths.shape}"
+        )
+    phase_index = int(np.clip(phase_index, 0, len(PHASE_LABELS) - 1))
+    phase_progress = float(np.clip(phase_progress, 0.0, 1.0))
+    elapsed = float(np.sum(lengths[:phase_index])) + phase_progress * max(
+        1.0, float(lengths[phase_index])
+    )
+    return float(np.clip(elapsed / max(1.0, float(max_progress)), 0.0, 1.5))
 
 
 def observation_to_features(
@@ -680,6 +805,38 @@ def fit_nearest_neighbor_policy(
     )
 
 
+# Demo phases where gripper timing is critical for event-order gates.
+CLOSE_TIMING_PHASES = ("grasp_align", "close_gripper")
+
+
+def action_loss_weights(
+    phase_indices: np.ndarray,
+    action_size: int,
+    *,
+    gripper_loss_weight: float = 1.0,
+    close_phase_gripper_weight: float | None = None,
+) -> np.ndarray:
+    """Per-sample, per-dim MSE weights. Arm dims stay 1.0; gripper dim is reweighted."""
+
+    if action_size < 1:
+        raise ValueError("action_size must be at least 1")
+    if gripper_loss_weight <= 0.0:
+        raise ValueError("gripper_loss_weight must be positive")
+    if close_phase_gripper_weight is not None and close_phase_gripper_weight <= 0.0:
+        raise ValueError("close_phase_gripper_weight must be positive when set")
+
+    n = len(phase_indices)
+    weights = np.ones((n, action_size), dtype=float)
+    gripper_dim = action_size - 1
+    base_gripper = float(gripper_loss_weight)
+    weights[:, gripper_dim] = base_gripper
+    if close_phase_gripper_weight is not None:
+        close_indices = {_phase_index(phase) for phase in CLOSE_TIMING_PHASES}
+        close_mask = np.isin(np.asarray(phase_indices, dtype=int), list(close_indices))
+        weights[close_mask, gripper_dim] = float(close_phase_gripper_weight)
+    return weights
+
+
 def fit_mlp_policy(
     dataset: Dataset,
     hidden_sizes: tuple[int, ...] = (64, 64),
@@ -689,6 +846,8 @@ def fit_mlp_policy(
     weight_decay: float = 1e-5,
     seed: int = 0,
     temporal_feature_mode: str = "legacy_progress_phase",
+    gripper_loss_weight: float = 1.0,
+    close_phase_gripper_weight: float | None = None,
 ) -> tuple[MLPBCPolicy, dict]:
     if temporal_feature_mode not in TEMPORAL_FEATURE_MODES:
         raise ValueError(f"unknown temporal feature mode: {temporal_feature_mode}")
@@ -714,16 +873,42 @@ def fit_mlp_policy(
         distance_scale = max(float(distances.std()), 1e-9)
         x = np.column_stack((base, (distances - distance_mean) / distance_scale))
     else:
-        progress = np.array(
-            [
-                min(1.5, float(index) / max_progress_by_key[str(key)])
-                for index, key in zip(dataset.progress_indices, dataset.group_keys)
-            ],
-            dtype=float,
-        )
-        phase_one_hot = np.zeros((len(dataset.phase_indices), len(PHASE_LABELS)), dtype=float)
-        phase_one_hot[np.arange(len(dataset.phase_indices)), dataset.phase_indices] = 1.0
-        phase_progress = dataset.phase_progress
+        if temporal_feature_mode == "env_derived_phase":
+            env_phases = np.asarray(
+                [estimate_env_phase(row) for row in dataset.features],
+                dtype=float,
+            )
+            phase_indices = env_phases[:, 0].astype(int)
+            phase_progress = env_phases[:, 1]
+            phase_lengths_by_key = {
+                key: group_phase_lengths[index] for index, key in enumerate(group_keys)
+            }
+            progress = np.array(
+                [
+                    env_phase_global_progress(
+                        int(phase_index),
+                        float(phase_prog),
+                        phase_lengths_by_key[str(key)],
+                        max_progress_by_key[str(key)],
+                    )
+                    for phase_index, phase_prog, key in zip(
+                        phase_indices, phase_progress, dataset.group_keys
+                    )
+                ],
+                dtype=float,
+            )
+        else:
+            progress = np.array(
+                [
+                    min(1.5, float(index) / max_progress_by_key[str(key)])
+                    for index, key in zip(dataset.progress_indices, dataset.group_keys)
+                ],
+                dtype=float,
+            )
+            phase_indices = dataset.phase_indices
+            phase_progress = dataset.phase_progress
+        phase_one_hot = np.zeros((len(phase_indices), len(PHASE_LABELS)), dtype=float)
+        phase_one_hot[np.arange(len(phase_indices)), phase_indices] = 1.0
         x = np.column_stack(
             (
                 base,
@@ -742,11 +927,22 @@ def fit_mlp_policy(
     action_scale = dataset.actions.std(axis=0)
     action_scale = np.where(action_scale <= 1e-9, 1.0, action_scale)
     y = (dataset.actions - action_mean) / action_scale
+    # Loss weights use demo phase labels (not env-derived phase / cursor).
+    loss_weights = action_loss_weights(
+        dataset.phase_indices,
+        y.shape[1],
+        gripper_loss_weight=gripper_loss_weight,
+        close_phase_gripper_weight=close_phase_gripper_weight,
+    )
 
     rng = np.random.default_rng(seed)
     layer_sizes = (x.shape[1], *hidden_sizes, y.shape[1])
     weights = [
-        rng.normal(0.0, np.sqrt(2.0 / (layer_sizes[index] + layer_sizes[index + 1])), size=(layer_sizes[index], layer_sizes[index + 1]))
+        rng.normal(
+            0.0,
+            np.sqrt(2.0 / (layer_sizes[index] + layer_sizes[index + 1])),
+            size=(layer_sizes[index], layer_sizes[index + 1]),
+        )
         for index in range(len(layer_sizes) - 1)
     ]
     biases = [np.zeros(size, dtype=float) for size in layer_sizes[1:]]
@@ -757,6 +953,7 @@ def fit_mlp_policy(
 
     step = 0
     last_loss = float("inf")
+    last_weighted_loss = float("inf")
     for _ in range(epochs):
         order = rng.permutation(len(x))
         for start in range(0, len(order), batch_size):
@@ -770,21 +967,27 @@ def fit_mlp_policy(
             prediction = activations[-1] @ weights[-1] + biases[-1]
             activations.append(prediction)
             error = prediction - y[batch]
-            grad = (2.0 / len(batch)) * error
+            # Weighted MSE: d/de mean(w * e^2) = (2/B) * w * e.
+            grad = (2.0 / len(batch)) * (loss_weights[batch] * error)
             grad_weights: list[np.ndarray] = []
             grad_biases: list[np.ndarray] = []
             for layer_index in reversed(range(len(weights))):
-                grad_weights.append(activations[layer_index].T @ grad + weight_decay * weights[layer_index])
+                grad_weights.append(
+                    activations[layer_index].T @ grad + weight_decay * weights[layer_index]
+                )
                 grad_biases.append(grad.sum(axis=0))
                 if layer_index > 0:
-                    grad = (grad @ weights[layer_index].T) * (1.0 - np.tanh(preactivations[layer_index - 1]) ** 2)
+                    grad = (grad @ weights[layer_index].T) * (
+                        1.0 - np.tanh(preactivations[layer_index - 1]) ** 2
+                    )
             grad_weights.reverse()
             grad_biases.reverse()
             step += 1
             _adam_update(weights, grad_weights, weight_m, weight_v, step, learning_rate)
             _adam_update(biases, grad_biases, bias_m, bias_v, step, learning_rate)
-        last_loss = float(np.mean((forward_mlp(x, weights, biases) - y) ** 2))
-
+        residual = forward_mlp(x, weights, biases) - y
+        last_loss = float(np.mean(residual**2))
+        last_weighted_loss = float(np.mean(loss_weights * residual**2))
     policy = MLPBCPolicy(
         action_space=dataset.action_space,
         feature_mean=feature_mean,
@@ -802,6 +1005,12 @@ def fit_mlp_policy(
         base_feature_names=dataset.feature_names,
         policy_feature_names=mlp_policy_feature_names(temporal_feature_mode),
     )
+    close_phase_count = int(
+        np.isin(
+            dataset.phase_indices,
+            [_phase_index(phase) for phase in CLOSE_TIMING_PHASES],
+        ).sum()
+    )
     return policy, {
         "policy_type": "mlp_bc",
         "hidden_sizes": list(hidden_sizes),
@@ -815,6 +1024,15 @@ def fit_mlp_policy(
         "policy_feature_names": mlp_policy_feature_names(temporal_feature_mode),
         "policy_input_dimension": int(x.shape[1]),
         "train_mse_normalized": last_loss,
+        "train_mse_weighted": last_weighted_loss,
+        "gripper_loss_weight": float(gripper_loss_weight),
+        "close_phase_gripper_weight": (
+            None
+            if close_phase_gripper_weight is None
+            else float(close_phase_gripper_weight)
+        ),
+        "close_timing_phases": list(CLOSE_TIMING_PHASES),
+        "close_timing_sample_count": close_phase_count,
     }
 
 

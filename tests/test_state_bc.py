@@ -5,8 +5,12 @@ import numpy as np
 from svla.demo_recorder import PickupDemoRecorder
 from svla.pickup_task import PickupTaskEvaluator, default_trial_specs
 from svla.state_bc import (
+    CLOSE_TIMING_PHASES,
+    PHASE_LABELS,
     TaskContext,
+    action_loss_weights,
     apply_gripper_close_guard,
+    estimate_env_phase,
     fit_mlp_policy,
     fit_nearest_neighbor_policy,
     load_demo_dataset,
@@ -15,6 +19,7 @@ from svla.state_bc import (
     observation_to_features,
     rollout_policy,
 )
+from svla.pickup_task import EARLY_CLOSE_DISTANCE
 
 
 def test_observation_features_include_numeric_task_context():
@@ -113,7 +118,11 @@ def test_mlp_temporal_modes_round_trip_and_none_is_cursor_invariant(tmp_path):
 
     for action_space in ("joint_delta", "ee_tool_delta"):
         dataset = load_demo_dataset([demo_path], action_space=action_space, stride=25)
-        for mode, expected_dimension in (("legacy_progress_phase", 50), ("none", 36)):
+        for mode, expected_dimension in (
+            ("legacy_progress_phase", 50),
+            ("none", 36),
+            ("env_derived_phase", 50),
+        ):
             policy, summary = fit_mlp_policy(
                 dataset,
                 hidden_sizes=(8,),
@@ -133,8 +142,118 @@ def test_mlp_temporal_modes_round_trip_and_none_is_cursor_invariant(tmp_path):
             assert len(summary["policy_feature_names"]) == expected_dimension
             assert action_0.shape == (6,)
             assert np.isfinite(action_0).all()
-            if mode == "none":
+            if mode in ("none", "env_derived_phase"):
+                # Phase comes from observation state, not open-loop cursor.
                 assert np.array_equal(action_0, action_99)
+
+
+def test_estimate_env_phase_uses_distance_contact_lift_bins():
+    names = observation_feature_names()
+    features = np.zeros(len(names), dtype=float)
+    features[names.index("gripper_open")] = 1.0
+    features[names.index("object_support_contact")] = 1.0
+
+    # Far approach.
+    features[names.index("object_minus_ee_z")] = 0.09
+    phase_index, progress = estimate_env_phase(features)
+    assert PHASE_LABELS[phase_index] == "approach_0"
+    assert 0.0 <= progress <= 1.0
+
+    # Grasp-align ball.
+    features[names.index("object_minus_ee_z")] = EARLY_CLOSE_DISTANCE * 0.5
+    phase_index, progress = estimate_env_phase(features)
+    assert PHASE_LABELS[phase_index] == "grasp_align"
+
+    # Close: near object and jaw not fully open.
+    features[names.index("gripper_open")] = 0.4
+    phase_index, progress = estimate_env_phase(features)
+    assert PHASE_LABELS[phase_index] == "close_gripper"
+
+    # Lift: contact + closed grip + rising object.
+    features[names.index("gripper_object_contact")] = 1.0
+    features[names.index("object_lift_from_start")] = 0.01
+    phase_index, progress = estimate_env_phase(features)
+    assert PHASE_LABELS[phase_index] == "lift"
+
+    # Hold height.
+    features[names.index("object_lift_from_start")] = 0.032
+    phase_index, progress = estimate_env_phase(features)
+    assert PHASE_LABELS[phase_index] == "hold"
+
+
+def test_estimate_env_phase_does_not_label_far_opening_jaw_as_close():
+    """Home jaw may be partially open while still far from the object."""
+
+    names = observation_feature_names()
+    features = np.zeros(len(names), dtype=float)
+    features[names.index("gripper_open")] = 0.75
+    features[names.index("object_minus_ee_z")] = 0.09
+    features[names.index("object_support_contact")] = 1.0
+
+    phase_index, _ = estimate_env_phase(features)
+    assert PHASE_LABELS[phase_index] == "approach_0"
+
+
+def test_action_loss_weights_upweight_gripper_and_close_phases():
+    phase_indices = np.array(
+        [
+            PHASE_LABELS.index("approach_0"),
+            PHASE_LABELS.index("grasp_align"),
+            PHASE_LABELS.index("close_gripper"),
+            PHASE_LABELS.index("lift"),
+        ],
+        dtype=int,
+    )
+    weights = action_loss_weights(
+        phase_indices,
+        action_size=6,
+        gripper_loss_weight=5.0,
+        close_phase_gripper_weight=10.0,
+    )
+
+    assert weights.shape == (4, 6)
+    assert np.allclose(weights[:, :5], 1.0)
+    assert weights[0, 5] == 5.0
+    assert weights[1, 5] == 10.0
+    assert weights[2, 5] == 10.0
+    assert weights[3, 5] == 5.0
+    assert set(CLOSE_TIMING_PHASES) == {"grasp_align", "close_gripper"}
+
+
+def test_gripper_weighted_mlp_fits_and_reports_weights(tmp_path):
+    recorder = PickupDemoRecorder(PickupTaskEvaluator())
+    spec = default_trial_specs(repeats=1)[0]
+    demo_path = tmp_path / "demo.json"
+    recorder.write_trial(spec, demo_path)
+    dataset = load_demo_dataset([demo_path], action_space="ee_tool_delta", stride=40)
+
+    uniform, uniform_summary = fit_mlp_policy(
+        dataset,
+        hidden_sizes=(8,),
+        epochs=2,
+        batch_size=64,
+        seed=1,
+        gripper_loss_weight=1.0,
+        close_phase_gripper_weight=None,
+    )
+    weighted, weighted_summary = fit_mlp_policy(
+        dataset,
+        hidden_sizes=(8,),
+        epochs=2,
+        batch_size=64,
+        seed=1,
+        gripper_loss_weight=5.0,
+        close_phase_gripper_weight=10.0,
+    )
+
+    assert uniform_summary["gripper_loss_weight"] == 1.0
+    assert uniform_summary["close_phase_gripper_weight"] is None
+    assert weighted_summary["gripper_loss_weight"] == 5.0
+    assert weighted_summary["close_phase_gripper_weight"] == 10.0
+    assert weighted_summary["close_timing_sample_count"] > 0
+    assert "train_mse_weighted" in weighted_summary
+    # Same seed + different loss should not produce identical weights.
+    assert not np.allclose(uniform.weights[-1], weighted.weights[-1])
 
 
 def test_loading_pre_metadata_mlp_defaults_to_legacy_mode(tmp_path):

@@ -279,6 +279,8 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
                     weight_decay=args.weight_decay,
                     seed=seed,
                     temporal_feature_mode=args.temporal_feature_mode,
+                    gripper_loss_weight=args.gripper_loss_weight,
+                    close_phase_gripper_weight=args.close_phase_gripper_weight,
                 )
                 model_path = model_dir / f"{action_space}_mlp_bc{seed_suffix}.npz"
             policy.evaluation_config_hash = (
@@ -431,6 +433,12 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
     combined["registered_eval_total_per_seed"] = registered_eval_total
     combined["explicit_eval_limit"] = args.eval_limit
     combined["temporal_feature_mode"] = args.temporal_feature_mode
+    combined["gripper_loss_weight"] = float(args.gripper_loss_weight)
+    combined["close_phase_gripper_weight"] = (
+        None
+        if args.close_phase_gripper_weight is None
+        else float(args.close_phase_gripper_weight)
+    )
     combined["shielded_policy"] = bool(args.gripper_close_guard)
     combined["action_gains"] = {
         "joint_delta": args.joint_action_gain
@@ -482,9 +490,13 @@ def main() -> None:
     parser.add_argument("--policy-type", choices=("nearest", "mlp"), default="mlp")
     parser.add_argument(
         "--temporal-feature-mode",
-        choices=("legacy_progress_phase", "none"),
+        choices=("legacy_progress_phase", "none", "env_derived_phase"),
         default="legacy_progress_phase",
-        help="MLP input contract; none retrains without cursor/progress/phase and adds distance.",
+        help=(
+            "MLP input contract; none retrains without cursor/progress/phase and adds "
+            "distance; env_derived_phase keeps the legacy progress/phase layout but "
+            "sources phase from live contact/lift/distance at train and rollout."
+        ),
     )
     parser.add_argument("--k", type=int, default=1)
     parser.add_argument("--temperature", type=float, default=0.75)
@@ -530,6 +542,24 @@ def main() -> None:
         choices=("policy_labels", "labels"),
         default="policy_labels",
         help="Use executable policy labels by default; raw labels are observed transitions.",
+    )
+    parser.add_argument(
+        "--gripper-loss-weight",
+        type=float,
+        default=1.0,
+        help=(
+            "H-EE-008: multiply MSE on the gripper action dim. Default 1.0 preserves "
+            "uniform MSE; use >1 to upweight gripper timing."
+        ),
+    )
+    parser.add_argument(
+        "--close-phase-gripper-weight",
+        type=float,
+        default=None,
+        help=(
+            "H-EE-008: optional override gripper MSE weight on demo phases "
+            "grasp_align and close_gripper. Default None uses --gripper-loss-weight."
+        ),
     )
     parser.add_argument(
         "--include-failed-demos",
