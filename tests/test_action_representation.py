@@ -41,6 +41,16 @@ def test_action_representation_scales_only_arm_dimensions():
     assert np.array_equal(action, np.array([1.0, 2.0, 3.0, 4.0, 5.0, 0.25]))
 
 
+def test_action_representation_gain_one_is_byte_identical():
+    representation = get_action_representation("ee_tool_delta")
+    action = np.array([0.019, -0.0, -0.0125, 0.08, -0.08, 0.0], dtype=np.float64)
+
+    scaled = representation.scale_arm(action, 1.0)
+
+    assert scaled.tobytes() == action.tobytes()
+    assert scaled[-1:].tobytes() == action[-1:].tobytes()
+
+
 def test_action_representation_rejects_wrong_or_nonfinite_vectors():
     representation = get_action_representation("joint_delta")
     with pytest.raises(ValueError, match="shape"):

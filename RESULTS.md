@@ -46,6 +46,10 @@ Primary tracked records:
 - H-EE-007 raw observed EE labels: rejected at replay (0/18 success and 0/18 event order,
   versus executable-label control 18/18). The raw transition vectors are not command-scale
   executable labels, so no seed screen or validation training was run.
+- H-EE-002 frozen hybrid gain sweep: rejected. Gain 1.0 reproduced EE 62/120 exactly;
+  0.875 collapsed to 5/120 and 0.750 to 0/120. Lower failure-conditioned constraint
+  exposure recovered zero paired missing-lift successes and lost 57/62 baseline successes.
+  Evidence: `evidence/h_ee_002_hybrid_gain_sweep.json`.
 
 ## Experiment Matrix
 
@@ -58,6 +62,6 @@ Primary tracked records:
 | chunked/latent actions | untested | untested | untested | untested | untested |
 
 The highest-value open cells are not “train a VLA.” They are closed-loop residual fixes for
-EE pickup (SP2b/H-EE-015 and the separate SP4/H-EE-002 gain probe), followed by a
+EE pickup (SP2b/H-EE-015, then H-EE-017 only if justified), followed by a
 deliberately scoped joint-only pick-place BC benchmark if the team accepts that detour.
 Phase 6b remains blocked.
