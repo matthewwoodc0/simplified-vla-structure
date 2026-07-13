@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from svla.demo_recorder import PickupDemoRecorder
-from svla.pick_place_replay import replay_demo_policy_labels
+from svla.pick_place_replay import recorded_replay_action, replay_demo_policy_labels
 from svla.pickup_task import (
     OBJECT_START_Z,
     ApproachStrategy,
@@ -64,6 +64,33 @@ def _pick_place_demo():
         placement_target=PlacementTarget("place_right", "place_right_marker", "place_right_marker"),
     )
     return spec, recorder.record_pick_place_trial(spec)
+
+
+def test_replay_label_source_is_explicit_and_policy_labels_remain_default():
+    sample = {
+        "policy_labels": {
+            "ee_tool_delta": [1.0] * 6,
+            "joint_delta": [2.0] * 6,
+        },
+        "labels": {
+            "ee_tool_delta": [3.0] * 6,
+            "joint_delta": [4.0] * 6,
+        },
+    }
+
+    assert np.array_equal(
+        recorded_replay_action(sample, "ee_tool_delta"),
+        sample["policy_labels"]["ee_tool_delta"],
+    )
+    assert np.array_equal(
+        recorded_replay_action(sample, "ee_tool_delta", "labels"),
+        sample["labels"]["ee_tool_delta"],
+    )
+    # H-EE-007 does not silently change the joint source.
+    assert np.array_equal(
+        recorded_replay_action(sample, "joint_delta"),
+        sample["policy_labels"]["joint_delta"],
+    )
 
 
 def test_maybe_finalize_grasp_at_sample_only_at_boundary():

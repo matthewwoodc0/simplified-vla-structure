@@ -12,7 +12,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from svla.demo_recorder import PickupDemoRecorder
 from svla.experiment_manifest import ExperimentManifest
-from svla.pick_place_replay import ACTION_SPACES, replay_demo_policy_labels
+from svla.pick_place_replay import ACTION_SPACES, LABEL_SOURCES, replay_demo_policy_labels
 from svla.pickup_task import (
     OBJECT_START_Z,
     ApproachStrategy,
@@ -60,6 +60,7 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
                 action_space,
                 np.asarray(spec.object_pose.xyz, dtype=float),
                 task=args.task,
+                label_source=args.label_source,
             )
             for spec, demo in demos
         ]
@@ -70,6 +71,7 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
         "task": args.task,
         "demo_format": demo_format,
         "demo_count": len(demos),
+        "label_source": args.label_source,
         "by_action_space": by_action_space,
         "pass": _replay_passes(args.task, by_action_space),
     }
@@ -209,6 +211,12 @@ def main() -> None:
         type=int,
         default=1,
         help="Number of pick-and-place demos to record when --task pick_place.",
+    )
+    parser.add_argument(
+        "--label-source",
+        choices=LABEL_SOURCES,
+        default="policy_labels",
+        help="Explicit recorded label stream to execute; default preserves prior behavior.",
     )
     parser.add_argument(
         "--output",
