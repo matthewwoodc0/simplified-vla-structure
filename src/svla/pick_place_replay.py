@@ -12,6 +12,23 @@ from svla.pickup_task import (
 
 
 ACTION_SPACES = COMPARISON_ACTION_SPACES
+LABEL_SOURCES = ("policy_labels", "labels")
+
+
+def recorded_replay_action(
+    sample: dict,
+    action_space: str,
+    label_source: str = "policy_labels",
+) -> np.ndarray:
+    """Select one recorded action explicitly; default preserves legacy replay."""
+
+    if label_source not in LABEL_SOURCES:
+        raise ValueError(
+            f"unknown label source {label_source!r}; expected one of {LABEL_SOURCES}"
+        )
+    if label_source not in sample:
+        raise KeyError(f"demo sample missing explicit label source {label_source!r}")
+    return np.asarray(sample[label_source][action_space], dtype=float)
 
 
 def replay_demo_policy_labels(
@@ -20,7 +37,15 @@ def replay_demo_policy_labels(
     object_start: np.ndarray,
     *,
     task: str = "pickup",
+    label_source: str = "policy_labels",
 ) -> dict:
+    """Replay one recorded action stream under an explicit label contract.
+
+    ``policy_labels`` remains the compatibility default.  H-EE-007 selects
+    ``labels`` explicitly for the EE candidate; it never changes the joint
+    source implicitly.
+    """
+
     trial = demo["metadata"]["trial_spec"]
     env = PickupTaskEvaluator()
     env.reset(object_start)
@@ -48,7 +73,7 @@ def replay_demo_policy_labels(
             close_contact_steps_before = int(
                 env.get_success_metrics()["close_contact_steps"]
             )
-        action = np.asarray(sample["policy_labels"][action_space], dtype=float)
+        action = recorded_replay_action(sample, action_space, label_source)
         _, _, status = representation.execute(env, action)
         telemetry = representation.telemetry(status)
         counts["saturated_steps"] += int(telemetry["saturated"])
@@ -71,6 +96,7 @@ def replay_demo_policy_labels(
         trial,
         task,
         counts,
+        label_source=label_source,
         contact_during_close=contact_during_close,
     )
 
@@ -82,6 +108,7 @@ def _summarize_replay(
     task: str,
     counts: dict,
     *,
+    label_source: str = "policy_labels",
     contact_during_close: bool = False,
 ) -> dict:
     steps = len(demo["samples"])
@@ -123,6 +150,7 @@ def _summarize_replay(
         "orientation": trial["orientation"],
         "object_pose": trial["object_pose"],
         "approach": trial["approach"],
+        "label_source": label_source,
         "success": success,
         "collision_free_approach": bool(metrics["collision_free_approach"]),
         "event_order_valid": bool(metrics["event_order_valid"]),
@@ -135,6 +163,9 @@ def _summarize_replay(
         ),
         "max_object_xy_displacement_while_supported": float(
             metrics["max_object_xy_displacement_while_supported"]
+        ),
+        "max_object_rotation_while_supported": float(
+            metrics["max_object_rotation_while_supported"]
         ),
         "preclose_contact_steps": int(metrics["preclose_contact_steps"]),
         "preclose_max_object_displacement": float(

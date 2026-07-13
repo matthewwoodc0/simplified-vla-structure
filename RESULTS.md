@@ -43,6 +43,9 @@ Primary tracked records:
 - H-EE-023 arm-only MLP under NN gripper: rejected; EE 67/120 did not meet the bar and
   missing-lift failures worsened.
 - H-EE-024 impulse-dominant failures are diagnosed but not yet a trained intervention.
+- H-EE-007 raw observed EE labels: rejected at replay (0/18 success and 0/18 event order,
+  versus executable-label control 18/18). The raw transition vectors are not command-scale
+  executable labels, so no seed screen or validation training was run.
 
 ## Experiment Matrix
 
@@ -55,5 +58,6 @@ Primary tracked records:
 | chunked/latent actions | untested | untested | untested | untested | untested |
 
 The highest-value open cells are not “train a VLA.” They are closed-loop residual fixes for
-EE pickup (SP2b/H-EE-015 and SP4 label-contract probes), followed by a deliberately scoped
-joint-only pick-place BC benchmark if the team accepts that detour. Phase 6b remains blocked.
+EE pickup (SP2b/H-EE-015 and the separate SP4/H-EE-002 gain probe), followed by a
+deliberately scoped joint-only pick-place BC benchmark if the team accepts that detour.
+Phase 6b remains blocked.

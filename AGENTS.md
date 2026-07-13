@@ -186,6 +186,11 @@ needs review. Do not overclaim from passing tests alone.
   final closed; Phase 6b blocked. Scoreboard:
   `outputs/post_h_ee_014_residual_scoreboard.json`. Report:
   `reports/2026-07-09-post-h-ee-014-residual-progress.md`.
+- **2026-07-13:** **H-EE-007 rejected at the replay gate** — raw observed EE transitions
+  were ~30× smaller than executable policy labels and replayed at **0/18** success / **0/18**
+  event order, versus policy-label control **18/18**. Gripper labels matched exactly; no
+  training, validation, or final access occurred. Evidence:
+  `outputs/h_ee_007_label_contract_probe/`.
 
 ## YOU ARE HERE
 
@@ -469,8 +474,10 @@ Phase 5 follow-up (not blocking vision infra):
   impulse almost-wins + early-close (vertical)** — not reopen.
 - **Post-014 residual program SP0–SP3 done:** H-EE-022/023 **rejected**; H-EE-024
   **diagnosed no-train**. Scoreboard: `outputs/post_h_ee_014_residual_scoreboard.json`.
-  - **Next open:** SP2b/H-EE-015 (early_close still 11), SP4 H-EE-007/H-EE-002 under hybrid,
+  - **Next open:** SP2b/H-EE-015 (early_close still 11), SP4 H-EE-002 under hybrid,
     H-EE-017 if non-Markov, SP6 joint pick-place optional.
+  - **Newly closed:** H-EE-007 raw observed labels failed the 18-demo executability gate;
+    do not train or rescale them as a rescue variant.
   - **Still closed/blocked:** final holdout; Phase 6b vision BC.
 - One causal change per train; compare against hybrid A1 baseline (62), not pure MLP.
 - Do not re-run H-EE-022 match-set or H-EE-023 A2 as defaults; do not prioritize
