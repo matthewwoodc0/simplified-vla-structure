@@ -50,6 +50,12 @@ Primary tracked records:
   0.875 collapsed to 5/120 and 0.750 to 0/120. Lower failure-conditioned constraint
   exposure recovered zero paired missing-lift successes and lost 57/62 baseline successes.
   Evidence: `evidence/h_ee_002_hybrid_gain_sweep.json`.
+- H-EE-015 oracle FSM arm upper bound: **`negative_arm_ceiling`** (oracle diagnostic, not
+  learned-policy performance). Frozen hybrid A1 arm + privileged latched gripper FSM:
+  success 62→**47**/120, EO 79→77, phys 68→**56**, worst seed 9→**5**, missing-lift EO
+  30→**42**, never-transitioned 0, paired recoveries 5 / regressions 20. Early-close and
+  reopen are zero by construction and must not be credited as policy gains. Evidence:
+  `outputs/h_ee_015_fsm_upper_bound/`, `reports/2026-07-14-h-ee-015-fsm-upper-bound.md`.
 
 ## Experiment Matrix
 
@@ -62,6 +68,7 @@ Primary tracked records:
 | chunked/latent actions | untested | untested | untested | untested | untested |
 
 The highest-value open cells are not “train a VLA.” They are closed-loop residual fixes for
-EE pickup (SP2b/H-EE-015, then H-EE-017 only if justified), followed by a
+EE pickup arm/path/force (H-EE-015 showed gripper oracle does not raise the arm ceiling),
+optional H-EE-017 only if a non-Markov arm residual is justified, followed by a
 deliberately scoped joint-only pick-place BC benchmark if the team accepts that detour.
-Phase 6b remains blocked.
+Phase 6b remains blocked. Best learned EE remains hybrid A1 62/120.
