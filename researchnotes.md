@@ -150,29 +150,49 @@ causally ruled out. See the ladder in `AGENTS.md`.
 | H-EE-014 | confirmed | **Hybrid NN gripper + MLP arm:** nearest-neighbor on `MATCH_FEATURE_INDICES` for gripper dim only; MLP for Cartesian dims. | NN matches state-local demo timing; residual under H-EE-021 is reopen/hold after close, not early-close. Note: current match indices are object pose + contact/lift, not object_minus_ee. | Compositor A1 under `global_gripper` (primary); protocol-v2 validation; raw policy; compare EE success, EO, reopen, worst seed vs H-EE-021 MLP-only global baseline. Full plan: `prompts/h-ee-014-nn-gripper-plan.md`. | **Confirmed on validation.** Hybrid A1 under `global_gripper` vs pure-MLP global baseline: EE 49→**62**/120 (+13), EO 60→**79** (+19), reopen **155→0**, worst seed 4→**9**/24 (+5). Joint 76→**97**/120 (no collapse; +21). All pre-registered pass bars met. Residual EO failures: **missing_lift (30) + early_close (11)** — reopens eliminated (flips=1.0 success and fail). Early-close rose 2→11 (secondary). Phys flat at 68. Still short of research parity frontier (84/90/100, worst≥12). Final not accessed. Evidence: `outputs/h_ee_014_nn_gripper_global_validation/`. |
 | H-EE-015 | rejected | **Scripted gripper schedule + learned arm:** expert/task defines when close is legal; policy outputs arm deltas only (or gripper overridden by FSM). | Shrinks ML problem to motion; controller-first ethos. Event order becomes structural. Under hybrid, early-close is only 11/120 — FSM would mostly be an **arm upper-bound diagnostic**, not the main path to learned EE parity. | Frozen-arm inference-only oracle FSM diagnostic; eval gates unchanged. Execution prompt: `prompts/h-ee-015-fsm-arm-upper-bound.md`. | **`negative_arm_ceiling` (rejected as arm-upper-bound claim).** Frozen hybrid A1 arm + fixed oracle FSM gripper: success **47**/120 (baseline 62), EO 77 (79), phys **56** (68), worst seed **5** (9), missing_lift_eo **42** (30), early_close 0 / reopen 0 by construction, never-transitioned 0, impulse almost-wins 24, paired +5/−20 net −15. Pre-registered strong/partial bars all failed. Privileged grasp-target FSM is **not** learned-policy performance and does not replace raw EE-vs-joint. Evidence: `outputs/h_ee_015_fsm_upper_bound/`. Report: `reports/2026-07-14-h-ee-015-fsm-upper-bound.md`. |
 | H-EE-016 | deprioritized | **Close-phase demo oversampling:** weight loss or duplicate samples around `grasp_align` → `close_gripper` boundary. | Failures cluster at phase transitions; uniform stride under-represents close timing. | 2–5× sample weight on close phases; one seed EE retrain; event-order rate vs baseline. | **Deprioritized.** H-EE-008 already applies 10× loss at the transition; naïve oversampling mostly repeats that intervention. Prefer H-EE-019 if transition is the true causal factor. |
-| H-EE-017 | untested | **Short observation history (stack or tiny GRU):** approach→close or lift needs temporal context beyond single-step state. | Reopen residual is **gone** under hybrid (H-EE-014). History is only still plausible for early-close approach velocity or arm thrash context — not as a reopen fix. | 3–5 step joint/EE/gripper history or 1-layer GRU under frozen hybrid gripper; protocol-v2 validation. | **Deprioritized vs SP1/SP2.** Select only if match-set fails and early-close remains, or A2 fails and thrash looks non-Markov. |
+| H-EE-017 | untested | **Short observation history (stack or tiny GRU):** approach→close or lift needs temporal context beyond single-step state. | Reopen residual is **gone** under hybrid (H-EE-014). History is only still plausible for early-close approach velocity or arm thrash context — not as a reopen fix. | 3–5 step joint/EE/gripper history or 1-layer GRU under frozen hybrid gripper; protocol-v2 validation. | **Optional mechanism backlog only** (not mainline after 2026-07-14 synthesis). Select only if a non-Markov **arm** residual is carefully argued; never the default next step. |
 | H-EE-018 | deprioritized | **Adaptive gripper-gradient balancing:** keep gripper importance stable relative to arm error rather than fixed scalars. | If global 5× helps but seed reliability remains weak, fixed scalar weighting may over/under-penalize as arm residual shrinks. | Train with adaptive per-batch gripper scale under protocol-v2 validation; compare worst-seed success. | **Deprioritized.** Gripper is now NN under hybrid; adaptive gripper MSE is mostly obsolete for A1. |
 | H-EE-019 | deprioritized | **Narrow close-boundary curriculum:** focus learning on approach→close boundary without overweighting the long closed/lift segment. | If transition 10× is the main H-EE-008 driver, broad close-phase overweight may waste capacity on already-closed steps. | Curriculum / boundary-only weight schedule; same raw validation contract. | **Deprioritized.** Transition-only is weak on EE (+7/120); not the main driver. |
 | H-EE-020 | untested | **Targeted boundary demonstrations:** add demos only around measured ambiguous close states. | Off-support at the transition is a data coverage problem, not a generic “more demos” problem. | Collect/script demos only for diagnosed ambiguous close states; retrain selected loss contract. | **Low priority post-014.** Residual is missing_lift thrash + impulse almost-wins + vertical early-close — not a clear off-support reopen pocket. |
 | H-EE-021 | confirmed | **H-EE-008 is a causal clue, not the answer:** isolate whether 008 gains come from global gripper 5×, transition 10×, or both. | 008 changed two weights at once; EE 50/120 still far behind weighted joint 84/120. | Frozen four-profile matrix under one commit: `uniform` (1/1), `global_gripper` (5/5), `transition_gripper` (1/10), `combined_h_ee_008` (5/10). Same demos, obs, gains, MLP, schedule, seeds, protocol-v2 validation; both action spaces; raw policy only. | **Confirmed causal split.** EE success: uniform 31, global **49**, transition 38, combined **50** (deltas +18 / +7 / +19). **Global 5× is the main EE driver; transition alone is weak; combined is not super-additive for EE.** Global beats combined on EO (60 vs 55), worst seed (4 vs 2), early_close (2 vs 5). Joint still wants combined (84/90/100 vs global 76/84/92). Residual under all profiles: **reopen/gripper flips**, not early-close. No EE profile meets frontier. Final not accessed. Evidence: `outputs/h_ee_021_loss_decomposition/`. Diagnosis: `h_ee_021_global_vs_combined_diagnosis.json`. |
 | H-EE-022 | rejected | **Named NN match-set with relative EE–object features** reduces hybrid early-close without reintroducing reopens. | Hybrid A1 match set is absolute object pose + contact/lift only — not `object_minus_ee_*`. Early-close trials close at ~18 mm vs ~7 mm legal; all 11 early-closes are `vertical_pregrasp`. | Secondary match contract (e.g. `match_relative_ee`) under frozen hybrid A1 + `global_gripper`; protocol-v2 validation; do **not** silently change the historical default match set. Full residual plan: `prompts/post-h-ee-014-residual-plan.md` SP1. | **Rejected.** Frozen hybrid weights re-eval under `match_relative_ee`: early_close **11→11** (bar ≤5); success 63; reopen 1; worst 8. Historical match retained as default. Evidence: `outputs/h_ee_022_match_relative_ee_validation/h_ee_022_comparison.json`. |
 | H-EE-023 | rejected | **A2 arm-only MLP loss under frozen NN gripper** improves lift/path after hold is solved. | Hybrid A1 still trains MLP on gripper MSE even though rollout gripper is NN. Missing-lift EO fails (30) show thrash (joint-limit ~965 vs ~92 on success) and weak lift (~5.8 mm mean). | Mask gripper residual / weight 0 in MLP train; NN supplies gripper; same hybrid rollout; compare missing_lift bucket, success, worst seed, reopen stays ~0. Plan SP2. | **Rejected.** Full retrain A2 under historical match: EE 67/120 (+5, bar ≥72 or missing_lift ≤~21); missing_lift_eo **32** (worse); worst seed **6**; reopen 0; joint 89 (≥87). Do not freeze A2. Keep A1 hybrid baseline. Evidence: `outputs/h_ee_023_arm_only_mlp_validation/h_ee_023_comparison.json`. |
-| H-EE-024 | diagnosed | **Impulse almost-wins are a path/force residual, not a gripper-timing residual.** | Under hybrid EE, 15 contact_dynamics fails are EO-valid **and** lifted **and** retained; 13/15 exceed impulse gate (mean ~11.4 vs thr 9.0). | Visual + telemetry diagnosis first (SP0); only then consider softer close / approach path changes or expert label changes — never relax the impulse gate as “progress.” Plan SP3. | **Diagnosed; no train yet.** 10 impulse-only, 3 impulse+xy, 1 force-only, 1 xy-only; mean impulse 11.44 vs success 6.55. Prolonged contact integral, not kN impact. Decision `no_train_yet`. Evidence: `outputs/h_ee_024_impulse_diagnosis/`. |
+| H-EE-024 | diagnosed | **Impulse almost-wins are a path/force residual, not a gripper-timing residual.** | Under hybrid EE, 15 contact_dynamics fails are EO-valid **and** lifted **and** retained; 13/15 exceed impulse gate (mean ~11.4 vs thr 9.0). | Visual + telemetry diagnosis first (SP0); only then consider softer close / approach path changes or expert label changes — never relax the impulse gate as “progress.” Plan SP3. | **Diagnosed; optional mechanism backlog only** (not mainline after 2026-07-14 synthesis). 10 impulse-only, 3 impulse+xy, 1 force-only, 1 xy-only; mean impulse 11.44 vs success 6.55. Prolonged contact integral, not kN impact. Decision `no_train_yet` unless a softer close/approach is separately registered. Evidence: `outputs/h_ee_024_impulse_diagnosis/`. |
 | H-JNT-001 | rejected | **The same distance guard materially improves joint readiness.** | Raw joint has 11 early-close trials, so the symmetric guard has a plausible target. | Same registered guarded diagnostic and byte-identical selected models. | **Rejected as a readiness fix.** Success moved 51/120→55/120 and event order 65/120→70/120; physical sanity fell 80/120→76/120 and the worst seed remained 2/24. |
 
 ---
 
-## Post-H-EE-014 residual program (sub-phases)
+## Post-H-EE-014 residual program (sub-phases) — MAINLINE CLOSED 2026-07-14
 
-**Frozen baseline contract:** hybrid A1 (`hybrid_nn_gripper_mlp`) + `global_gripper` +
-protocol-v2 **validation** + legacy_progress_phase + raw policy (no shield/FSM).
-**Baseline numbers:** EE 62/120, EO 79, phys 68, reopen 0, worst 9/24; joint 97/120.
-**Evidence:** `outputs/h_ee_014_nn_gripper_global_validation/`.
-**Full execution plan:** `prompts/post-h-ee-014-residual-plan.md`.
-**Goal-mode contract (pasteable, with real bars):** `prompts/goal-post-h-ee-014-residual.md`.
+**Status:** pickup **rescue mainline closed**. Durable synthesis:
+`evidence/phase5_causal_synthesis.json`,
+`reports/2026-07-14-phase5-causal-synthesis.md`.
 
-H-EE-014 closed the **reopen/hold** chapter. Residuals are **three different mechanisms**
-— do not treat them as one “more gripper MSE” problem.
+**Frozen fair comparison contract (next program uses this; not a readiness claim):**
+
+| Field | Value |
+|-------|-------|
+| Action spaces | `joint_delta`, `ee_tool_delta` |
+| Policy family | hybrid NN gripper + MLP arm, A1 compositor |
+| Loss | `global_gripper` |
+| NN match | historical |
+| Temporal features | `legacy_progress_phase` |
+| Label source | `policy_labels` |
+| Hidden sizes | 128 128 |
+| Epochs / batch / lr / wd | 300 / 1024 / 0.001 / 0.00001 |
+| Action gain | 1.0 |
+| Model seeds | 0 1 2 3 4 |
+| Gates | strict event-order + physical-sanity unchanged |
+
+**Baseline numbers under that contract:** EE 62/120, EO 79, phys 68, reopen 0, worst 9/24;
+joint 97/120. Raw protocol-v2 final remains joint 51/120, EE 28/120.
+**Evidence:** `outputs/h_ee_014_nn_gripper_global_validation/`,
+`evidence/phase5_v2_final_results.json`.
+**Historical residual plan (audit only):** `prompts/post-h-ee-014-residual-plan.md`.
+
+H-EE-014 closed the **reopen/hold** chapter. Residual *mechanisms* still exist
+(missing_lift thrash, impulse almost-wins, vertical early-close), but **default next work
+is not more rescue tuning** — it is the ordered comparative program below.
 
 ### Residual anatomy (EE hybrid, 120 trials)
 
@@ -192,14 +212,14 @@ Also: EE success **high_staged 39/60** vs **vertical 23/60** — approach bias, 
 | **SP0** | Visual + residual freeze | Render missing_lift thrash, impulse almost-win, early_close vertical; optionally declare frontier dual-bar | **complete** | Clips + one-page residual freeze in notes | Any metric alone |
 | **SP1** | Named relative match-set | **H-EE-022** | **rejected** | early_close ↓, reopen stays ~0, EE success not worse | missing_lift thrash, impulse |
 | **SP2** | Arm-only MLP under NN gripper | **H-EE-023** (A2) | **rejected** | missing_lift bucket ↓ or EE +10; worst seed ↑; reopen ~0 | early-close (unless side effect), impulse style |
-| **SP2b** | FSM gripper diagnostic | **H-EE-015** | **complete; negative_arm_ceiling** | Arm upper bound if SP1 fails | Learned gripper comparison purity |
-| **SP3** | Impulse almost-wins | **H-EE-024** | **diagnosed** (no train) | Mechanism confirmed; only then path/demo change | Timing metrics as substitute |
+| **SP2b** | FSM gripper diagnostic | **H-EE-015** | **complete; negative_arm_ceiling** | Oracle diagnostic only; not literal arm upper bound | Learned gripper purity; not fair EE-vs-joint |
+| **SP3** | Impulse almost-wins | **H-EE-024** | **optional backlog only** (diagnosed; no train) | Mechanism only if separately registered | Timing metrics as substitute; **not mainline** |
 | **SP4** | Parallel cheap probes | **H-EE-007** labels; H-EE-002 frozen gain | **complete; both rejected** | Label/gain causality yes/no | Raw labels failed replay; lower EE gains reduced exposure but collapsed success/lift |
 | **SP5** | Selection / final | only if bars + worst-seed/phys approach frontier | blocked | Human-approved single final access | Auto-open because validation improved |
-| **SP6** | Joint pick-place track | joint hybrid is strong (97/120) | optional | Task expansion without claiming EE fixed | EE parity |
+| **SP6** | Pick-place BC track | both spaces under frozen fair contract | **next program #2** | Task expansion as comparative replication | Do not frame as joint-only residual rescue |
 | **SP7** | Phase 6b vision | **H-VIS-001** | blocked | New temporal/gripper contract required | Fixing residual thrash by RGB alone |
 
-### Do not do next
+### Do not do next (rescue mainline closed)
 
 | Anti-pattern | Why |
 |--------------|-----|
@@ -210,44 +230,54 @@ Also: EE success **high_staged 39/60** vs **vertical 23/60** — approach bias, 
 | Distance-guard shield (H-EE-011 style) | Rejected; early-close is small pocket |
 | Relax impulse/phys gates | 15 almost-wins are real physics-audit signal |
 | Lower EE gain again or add a cap rescue under H-EE-002 | Registered 0.875/0.750 collapsed success; a cap is a new hypothesis, not a rescue |
+| FSM retune after H-EE-015 | Oracle diagnostic closed; not a fair learned-policy path |
+| Match-set / loss reweight as default next step | SP1 rejected; rescue chapter closed |
 | Combine SP1+SP2 in one first train | Confounds match-set vs arm-only causal claims |
 | Redefine EE vs joint learned comparison via FSM without labeling diagnostic | H-EE-015 purity risk |
+| Claim EE is universally worse than joint | Evidence is one sim/task/controller/BC family |
 
 ---
 
-## Improvement ideas backlog (tiered, post-H-EE-014)
+## Next comparative program (mainline after 2026-07-14 synthesis)
 
-Ideas below complement the hypothesis table. Prefer **residual-matched** experiments
-under the frozen hybrid contract. Full sub-phase program above.
+Ordered program under the frozen fair contract above:
 
-### Active — residual-matched (do these)
+1. **Demonstration efficiency** — preregistered nested/stratified demo-count curve, both spaces, common seeds.
+2. **Learned pick-place BC** — both action spaces; scripted/replay plumbing already exists.
+3. **Second controller replication** — distinct SO-101 tracking contract; identical obs/demos/trials/gates.
 
-| Tier | ID / SP | Idea | Retrain? | Effort | Targets residual |
-|------|---------|------|----------|--------|------------------|
-| 0 | SP0 | Visual review of 3 residual classes | No | Low | **done** |
-| 1 | H-EE-022 / SP1 | Named match-set + relative EE–object | Fit NN only | Low–medium | **rejected** (early_close 11) |
-| 1 | H-EE-023 / SP2 | A2 arm-only MLP under frozen NN gripper | Yes | Medium | **rejected** (missing_lift worse) |
-| 1 | H-EE-024 / SP3 | Impulse almost-win mechanism | Maybe later | Low then medium | **diagnosed; no train** |
-| 2 | H-EE-007 / SP4 | raw `labels` vs `policy_labels` probe | No | **rejected at replay** | Raw transitions are not command-scale executable labels |
-| 2 | H-EE-015 / SP2b | FSM gripper + learned arm (diagnostic) | Partial | **negative_arm_ceiling** | frozen arm + oracle FSM worse than hybrid A1 (47 vs 62) |
-| 2 | H-EE-002 | EE gain under **hybrid** (causal) | No | **rejected** | 0.875/0.750 collapsed success despite lower exposure; no cap rescue |
-| 3 | H-EE-017 | History / tiny GRU (arm or approach only) | Yes | Medium–high | non-Markov after SP1/SP2 reject |
-| 3 | SP6 | Joint-only pick-place BC track | Yes | Medium | task expansion (joint hybrid 97 still best) |
-| 4 | H-VIS-001 / SP7 | Vision BC with new gripper/temporal contract | Yes | High | blocked until EE comparison viable |
+Do **not** treat residual rescue knobs as the default queue. Synthesis:
+`evidence/phase5_causal_synthesis.json`.
 
-### Confirmed (keep as foundations)
+---
 
-| ID | Idea | Note |
-|----|------|------|
-| H-EE-008 | Gripper-weighted MSE | Confirmed; causal split H-EE-021 |
-| H-EE-021 | Global 5× main EE loss driver | Prefer `global_gripper` for EE hybrid |
-| H-EE-014 | Hybrid NN gripper + MLP arm | Confirmed; freeze as baseline |
+## Improvement ideas backlog (tiered, post-synthesis)
 
-### Deprioritized / ruled out
+### Mainline next program (do these)
+
+| Rank | ID | Idea | Retrain? | Notes |
+|-----:|----|------|----------|-------|
+| 1 | efficiency | Nested stratified demo-count curve | Yes | Fair contract frozen; preregister counts and seeds |
+| 2 | pick-place BC | Learned pick-place, both spaces | Yes | Comparative replication, not joint-only residual detour |
+| 3 | controller-2 | Second SO-101 controller integration | Yes | Keep obs/demos/trials/gates identical |
+
+### Optional mechanism backlog (not default)
+
+| ID / SP | Idea | Status | When, if ever |
+|---------|------|--------|---------------|
+| H-EE-024 / SP3 | Impulse almost-win path/force | diagnosed; no train | Only if softer close/approach is separately registered |
+| H-EE-017 | History / tiny GRU (arm) | untested optional | Only with careful non-Markov **arm** argument |
+
+### Closed rescue queue (do not re-open as default)
 
 | Item | Why |
 |------|-----|
-| H-EE-003 separate learned gripper head | **Rejected** — EE 50→34 under weighted contract |
+| H-EE-022 / SP1 match-set | **Rejected** — early_close 11→11 |
+| H-EE-023 / SP2 A2 arm-only | **Rejected** — missing_lift worse |
+| H-EE-007 raw labels | **Rejected at replay** — 0/18 vs 18/18; does not prove policy_labels optimal |
+| H-EE-002 gain sweep | **Rejected** — 62→5→0; lower exposure ≠ improvement |
+| H-EE-015 oracle FSM | **`negative_arm_ceiling`** — 47 vs 62; not learned; not literal upper bound |
+| H-EE-003 separate gripper head | **Rejected** — EE 50→34 under weighted contract |
 | H-EE-010 inference-only no-cursor | **Rejected** — 0/72 success |
 | H-EE-011 distance guard | **Rejected** — EE success/event order unchanged on registered diagnostic |
 | H-EE-012 cursor-free state MLP | **Rejected** — EE unchanged in practice; joint validation collapsed |
@@ -257,9 +287,18 @@ under the frozen hybrid contract. Full sub-phase program above.
 | H-EE-016 / H-EE-019 transition oversampling / curriculum | Deprioritized — not main driver; reopen solved |
 | H-EE-018 adaptive gripper MSE | Deprioritized — hybrid NN gripper makes this obsolete for A1 |
 | More pure gripper MSE reweight | Reopen residual solved by H-EE-014 |
+| Gain/cap rescue | H-EE-002 closed simple monotonic gain; unregistered cap is a new hypothesis |
 | 10× more demos without a coverage hypothesis | Costly and non-falsifiable |
 | Phase 6 vision + same pure MLP gripper / cursor clock | Cameras don't fix hold or thrash by themselves |
 | Loosen gates for “better” numbers | Diagnostic only; not a behavior fix |
+
+### Confirmed (keep as foundations)
+
+| ID | Idea | Note |
+|----|------|------|
+| H-EE-008 | Gripper-weighted MSE | Confirmed; causal split H-EE-021 |
+| H-EE-021 | Global 5× main EE loss driver | Prefer `global_gripper` for EE hybrid |
+| H-EE-014 | Hybrid NN gripper + MLP arm | Confirmed; **selected fair comparison freeze** |
 
 ---
 
@@ -293,18 +332,23 @@ under an explicitly named frontier bar.
 
 ---
 
-## Hypothesis priority (suggested order)
+## Hypothesis priority (suggested order) — post 2026-07-14 synthesis
 
-**Post residual program plus SP4 + SP2b complete:** best EE remains hybrid A1 62/120.
-H-EE-002/007/015/022/023 rejected; H-EE-024 diagnosed no-train. Next survivors:
+**Pickup rescue mainline closed.** Best fair validation EE remains hybrid A1 **62/120**
+(joint **97/120**). Raw final remains joint **51**/EE **28**. H-EE-002/007/015/022/023
+rejected; H-EE-024 diagnosed optional backlog only.
 
-1. **SP3 train path** — only if softer close/approach design is registered (not gate relaxation); impulse almost-wins rose under H-EE-015 (15→24).
-2. **H-EE-017** — history / tiny GRU only if a non-Markov **arm** residual is carefully argued (gripper timing is not the primary remaining fix after H-EE-015).
-3. **SP6** joint pick-place track optional (joint hybrid 97/120 still best).
-4. **SP5 final** — still closed; EE 62/worst 9/phys 68 short of legacy_84.
-5. **SP7** Phase 6b blocked; Phase 7 language/VLA is not the next step.
-6. **Crossed off:** H-EE-015 oracle FSM upper bound, H-EE-002 lower gain, H-EE-007 raw labels, H-EE-022 match-set, H-EE-023 A2 arm-only, H-EE-016/018/019, pure gripper MSE, distance guards.
-7. **Keep frozen:** hybrid A1 + `global_gripper` + historical match + H-EE-008/021 foundations.
+1. **Demonstration efficiency** — preregister nested/stratified demo counts under frozen fair contract.
+2. **Learned pick-place BC** — both action spaces under the same contract.
+3. **Second controller replication** — distinct SO-101 tracking contract; identical obs/demos/gates.
+4. **Optional only:** H-EE-024/SP3 impulse train if registered; H-EE-017 history only with non-Markov arm argument.
+5. **SP5 final** — still closed; EE 62/worst 9/phys 68 short of legacy_84 and stretched frontier.
+6. **SP7** Phase 6b blocked; Phase 7 language/VLA is not the next step.
+7. **Crossed off mainline:** H-EE-015 oracle FSM, H-EE-002 lower gain, H-EE-007 raw labels,
+   H-EE-022 match-set, H-EE-023 A2 arm-only, H-EE-016/018/019, pure gripper MSE, distance
+   guards, gain/cap rescue, FSM retune.
+8. **Keep frozen:** hybrid A1 + `global_gripper` + historical match + `policy_labels` +
+   gain 1.0 + H-EE-008/021 foundations (`evidence/phase5_causal_synthesis.json`).
 
 ---
 
@@ -337,6 +381,7 @@ H-EE-002/007/015/022/023 rejected; H-EE-024 diagnosed no-train. Next survivors:
 | 2026-07-13 | H-EE-007 | Raw observed EE labels vs reconstructed executable EE labels; 48,112-sample audit then 18-demo replay gate | **Rejected at replay; no train** — control 18/18, raw 0/18 success and 0/18 event-order. Raw arm labels were ~30× smaller on mean L2; gripper labels were identical. Final not accessed | `outputs/h_ee_007_label_contract_probe/h_ee_007_comparison.json`, `reports/2026-07-13-h-ee-007-label-contract.md` |
 | 2026-07-13 | H-EE-002 | Frozen H-EE-014 hybrid A1, inference-only EE arm gain sweep (1.0/0.875/0.750), protocol-v2 validation, 5 seeds × 24 | **Rejected** — 1.0 reproduced 62/120 exactly; 0.875 fell to 5/120 and 0.750 to 0/120. Lower failure-conditioned constraint exposure did not recover a single prior missing-lift trial; it lost 57/62 baseline successes and increased missing-lift/early-close. No training, cap rescue, final, or Phase 6b access | `outputs/h_ee_002_hybrid_gain_sweep/h_ee_002_gain_sweep_summary.json`, `evidence/h_ee_002_hybrid_gain_sweep.json`, `reports/2026-07-13-h-ee-002-hybrid-gain.md` |
 | 2026-07-14 | H-EE-015 | Frozen hybrid A1 EE arm + fixed oracle gripper FSM (privileged grasp-target thresholds), protocol-v2 validation, 5 seeds × 24, no train | **`negative_arm_ceiling`** — success 62→**47**/120, EO 79→77, phys 68→**56**, worst 9→**5**, missing_lift 30→**42**, early_close 11→0 and reopen 0 by construction, never-transitioned 0, impulse almost-wins 15→24, paired +5/−20 net −15. Not learned-policy performance; final closed | `outputs/h_ee_015_fsm_upper_bound/h_ee_015_summary.json`, `h_ee_015_paired_comparison.json`, `h_ee_015_experiment_manifest.json`, `reports/2026-07-14-h-ee-015-fsm-upper-bound.md` |
+| 2026-07-14 | Phase 5 synthesis | Documentation-only causal freeze of pickup rescue chapter; no train/re-eval/final/Phase 6b | **`SYNTHESIS_FROZEN`** — rescue_program_status closed; fair contract = hybrid A1 + global_gripper + historical match + policy_labels + gain 1.0; next program = efficiency → pick-place → second controller; H-EE-024/017 optional backlog only | `evidence/phase5_causal_synthesis.json`, `reports/2026-07-14-phase5-causal-synthesis.md` |
 
 *(Add a row when you run a hypothesis test — do not infer from loss curves alone.)*
 

@@ -56,6 +56,10 @@ Small tracked evidence records point to the ignored raw artifacts and freeze the
   selected temporal contract, and the final-access policy.
 - `evidence/phase5_v2_final_results.json` records raw and guarded final metrics, verifies
   matching source identity and byte-identical models, and keeps shielded evidence separate.
+- `evidence/phase5_causal_synthesis.json` freezes the 2026-07-14 pickup rescue chapter
+  closeout: source artifact SHA-256 hashes, decisive probe ruled-out/not-ruled-out claims,
+  the selected fair hybrid comparison contract, and the ordered next program
+  (efficiency → pick-place → second controller). Documentation-only; no final access.
 
 The raw selected-policy result is the learned-policy ladder. The guarded result is a
 `shielded_policy=true` diagnostic and must never replace or be blended with raw BC. The

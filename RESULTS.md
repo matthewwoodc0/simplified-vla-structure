@@ -18,6 +18,7 @@ Primary tracked records:
 
 - `evidence/phase5_v2_model_selection.json`
 - `evidence/phase5_v2_final_results.json`
+- `evidence/phase5_causal_synthesis.json` — durable rescue-chapter freeze (2026-07-14)
 - `outputs/phase5_baseline_final/phase5_baseline_v2_aggregate.json`
 - `outputs/h_ee_014_nn_gripper_global_validation/`
 
@@ -42,20 +43,43 @@ Primary tracked records:
 - H-EE-022 match-relative NN retrieval: rejected; early close did not improve.
 - H-EE-023 arm-only MLP under NN gripper: rejected; EE 67/120 did not meet the bar and
   missing-lift failures worsened.
-- H-EE-024 impulse-dominant failures are diagnosed but not yet a trained intervention.
+- H-EE-024 impulse-dominant failures are diagnosed; train path is optional mechanism backlog
+  only (not mainline).
 - H-EE-007 raw observed EE labels: rejected at replay (0/18 success and 0/18 event order,
   versus executable-label control 18/18). The raw transition vectors are not command-scale
-  executable labels, so no seed screen or validation training was run.
+  executable labels, so no seed screen or validation training was run. This does **not**
+  prove reconstructed `policy_labels` are optimal.
 - H-EE-002 frozen hybrid gain sweep: rejected. Gain 1.0 reproduced EE 62/120 exactly;
   0.875 collapsed to 5/120 and 0.750 to 0/120. Lower failure-conditioned constraint
   exposure recovered zero paired missing-lift successes and lost 57/62 baseline successes.
+  Rules out simple monotonic gain rescue; does **not** prove controllers are irrelevant.
   Evidence: `evidence/h_ee_002_hybrid_gain_sweep.json`.
-- H-EE-015 oracle FSM arm upper bound: **`negative_arm_ceiling`** (oracle diagnostic, not
-  learned-policy performance). Frozen hybrid A1 arm + privileged latched gripper FSM:
-  success 62→**47**/120, EO 79→77, phys 68→**56**, worst seed 9→**5**, missing-lift EO
-  30→**42**, never-transitioned 0, paired recoveries 5 / regressions 20. Early-close and
-  reopen are zero by construction and must not be credited as policy gains. Evidence:
-  `outputs/h_ee_015_fsm_upper_bound/`, `reports/2026-07-14-h-ee-015-fsm-upper-bound.md`.
+- H-EE-015 oracle FSM arm diagnostic: **`negative_arm_ceiling`** (oracle diagnostic, **not**
+  learned-policy performance, **not** a literal arm upper bound). Frozen hybrid A1 arm +
+  privileged latched gripper FSM: success 62→**47**/120, EO 79→77, phys 68→**56**, worst
+  seed 9→**5**, missing-lift EO 30→**42**, never-transitioned 0, paired recoveries 5 /
+  regressions 20. Early-close and reopen are zero by construction and must not be credited
+  as policy gains. Evidence: `outputs/h_ee_015_fsm_upper_bound/`,
+  `evidence/h_ee_015_fsm_upper_bound.json`,
+  `reports/2026-07-14-h-ee-015-fsm-upper-bound.md`.
+
+## Pickup rescue chapter (closed 2026-07-14)
+
+**Status:** `rescue_program_status: closed` — see `evidence/phase5_causal_synthesis.json`
+and `reports/2026-07-14-phase5-causal-synthesis.md`.
+
+| Decision | Meaning |
+|----------|---------|
+| End default gripper/gain/FSM/match/loss rescue tuning | Decisive probes closed the mainline residual rescue queue |
+| Freeze fair comparison on hybrid A1 + `global_gripper` | Strongest symmetric validation family; not “EE ready” |
+| Do not claim EE is universally worse than joint | One sim, one task family, one controller, one BC family |
+| Final holdout | Still closed |
+| Phase 6b | Still not started |
+
+**Frozen fair contract (next comparative work):** hybrid NN gripper + MLP arm A1,
+`global_gripper`, historical NN match, `legacy_progress_phase`, `policy_labels`,
+hidden 128×128, 300 epochs, batch 1024, lr 0.001, weight decay 1e-5, action gain 1.0,
+seeds 0–4, strict event-order and physical-sanity gates unchanged.
 
 ## Experiment Matrix
 
@@ -67,8 +91,15 @@ Primary tracked records:
 | discrete/tokenized actions | untested | untested | untested | untested | untested |
 | chunked/latent actions | untested | untested | untested | untested | untested |
 
-The highest-value open cells are not “train a VLA.” They are closed-loop residual fixes for
-EE pickup arm/path/force (H-EE-015 showed gripper oracle does not raise the arm ceiling),
-optional H-EE-017 only if a non-Markov arm residual is justified, followed by a
-deliberately scoped joint-only pick-place BC benchmark if the team accepts that detour.
-Phase 6b remains blocked. Best learned EE remains hybrid A1 62/120.
+The highest-value open cells are **not** “train a VLA” and **not** more pickup
+gripper/gain rescue. Ordered next program under the frozen fair contract:
+
+1. **Demonstration efficiency** — preregistered nested/stratified demo-count curve, both spaces.
+2. **Learned pick-place BC** — second manipulation task for both action spaces (scripted/replay
+   already exist); not a joint-only detour framed as residual rescue.
+3. **Second controller replication** — distinct SO-101 tracking contract with identical
+   observations, demos, trials, and gates.
+
+Optional mechanism backlog only: H-EE-024/SP3 impulse path if registered; H-EE-017 history
+only with a careful non-Markov arm argument. Phase 6b remains blocked. Best fair validation
+EE remains hybrid A1 **62/120** (joint **97/120**); raw final remains joint **51**/EE **28**.

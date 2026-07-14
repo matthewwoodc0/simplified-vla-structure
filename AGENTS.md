@@ -207,16 +207,28 @@ needs review. Do not overclaim from passing tests alone.
   Best EE remains hybrid A1 **62/120**. Stop treating gripper logic as the primary remaining
   fix. Evidence: `outputs/h_ee_015_fsm_upper_bound/`. Report:
   `reports/2026-07-14-h-ee-015-fsm-upper-bound.md`.
+- **2026-07-14:** **Phase 5 causal synthesis frozen** — pickup rescue mainline **closed**.
+  Decisive probes: H-EE-007 (raw labels 0/18 vs policy 18/18), H-EE-002 (gain 1.0→0.875→0.750
+  = 62→5→0/120), H-EE-015 (oracle FSM 47 vs hybrid 62). Fair contract freeze: hybrid A1 +
+  `global_gripper` + historical match + `legacy_progress_phase` + `policy_labels` + gain 1.0
+  + seeds 0–4 (validation family joint **97**/EE **62**; raw final still joint **51**/EE
+  **28**). Next program: demonstration efficiency → learned pick-place → second controller
+  replication. Do not claim EE is universally worse. Final not accessed; Phase 6b not
+  started. Evidence: `evidence/phase5_causal_synthesis.json`. Report:
+  `reports/2026-07-14-phase5-causal-synthesis.md`.
 
 ## YOU ARE HERE
 
-**Integration target:** `main` contains the audited Phase 6a infrastructure and the
-post-H-EE-014 residual program after the 2026-07-09 audit merge. Create a focused research
-branch before the next causal experiment; do not run new hypotheses directly on `main`.
+**Integration target:** synthesis lives on branch `codex/phase5-causal-synthesis` until
+merged; `main` already holds the audited Phase 6a infrastructure and post-H-EE-014 residual
+evidence. Create a focused research branch for each next-program experiment; do not run new
+hypotheses directly on `main`.
 
-**Current phase:** Phase 6a infrastructure is implemented on top of the closed scripted
-simulator/task gate. The learned-policy comparison gate remains **open/blocked**, and
-Phase 6b vision-conditioned policy/VLA work is **not started**.
+**Current phase:** Phase 5 pickup **rescue program closed** (synthesis freeze). Phase 6a
+vision infrastructure remains plumbing-only. The learned-policy comparison uses the frozen
+fair hybrid contract for the **next comparative program** (efficiency, pick-place, second
+controller). The final holdout remains **closed**, and Phase 6b vision-conditioned
+policy/VLA work is **not started**.
 
 Phases 1–5 plus Phase 6a infrastructure are built: MuJoCo SO-101 arm, damped-least-squares
 IK controller, action-space adapters, table/cube pickup task, scripted demonstrations,
@@ -475,33 +487,41 @@ for MP4 export.
 
 ## Next Useful Work
 
-Phase 6a vision infrastructure follow-up:
+**Pickup rescue mainline is closed.** Do not default to more gripper/gain/FSM/match/loss
+tuning. Durable freeze: `evidence/phase5_causal_synthesis.json`.
+
+### Ordered next research program (state-based, frozen fair contract)
+
+1. **Demonstration efficiency** — preregister nested/stratified demo-count curve for both
+   action spaces under the frozen hybrid A1 + `global_gripper` contract.
+2. **Learned pick-place BC** — second manipulation task for **both** action spaces under the
+   same contract (scripted/replay plumbing already exists).
+3. **Second controller replication** — distinct SO-101 tracking contract with identical
+   observations, demos, trials, and gates.
+
+### Frozen fair contract (do not silently change)
+
+- Action spaces: `joint_delta`, `ee_tool_delta`
+- Policy: hybrid NN gripper + MLP arm, A1 compositor
+- Loss: `global_gripper`; NN match: historical; temporal: `legacy_progress_phase`
+- Labels: `policy_labels`; gain 1.0; hidden 128×128; 300 epochs; batch 1024; lr 0.001;
+  weight decay 1e-5; seeds 0–4
+- Strict event-order and physical-sanity gates unchanged
+- Does **not** authorize final access, Phase 6b, or deployment claims
+
+### Still closed / blocked / optional only
+
+- Final holdout: **closed**
+- Phase 6b vision-conditioned BC / language / VLA: **blocked / not started**
+- H-EE-024/SP3 impulse train and H-EE-017 history: **optional mechanism backlog only**
+- Do not re-run H-EE-003/007/010/011/012/013/015/002/022/023 or H-JNT-001 as defaults
+- Do not rescale raw labels, lower EE gain further, add a cap rescue, or retune the FSM
+
+### Phase 6a vision infrastructure (plumbing only)
 
 - Keep fixed camera observations and scripted RGB datasets in the readiness domain only.
 - Do not store large RGB arrays in JSON demo rows; keep NPZ frames plus manifests.
-- Keep BC comparison on joint-delta until EE event-order failures are addressed.
-
-Phase 5 follow-up (not blocking vision infra):
-
-- H-EE-003, H-EE-010, H-EE-011, H-EE-012, H-EE-013, and H-JNT-001 are **rejected**; do not rerun them
-  as the default next step.
-- **H-EE-008 / H-EE-021 / H-EE-014 confirmed** ladder: best EE still hybrid A1 +
-  `global_gripper` **62/120** (joint 97/120). Residual still **missing_lift thrash +
-  impulse almost-wins + early-close (vertical)** — not reopen.
-- **Post-014 residual program SP0–SP3 done:** H-EE-022/023 **rejected**; H-EE-024
-  **diagnosed no-train**. Scoreboard: `outputs/post_h_ee_014_residual_scoreboard.json`.
-  - **Next open:** SP3 train path only if softer close/approach is registered; H-EE-017
-    only if a non-Markov **arm** residual is carefully argued; SP6 joint pick-place optional.
-  - **Newly closed:** H-EE-015 oracle FSM arm upper bound returned **`negative_arm_ceiling`**
-    (47/120 vs hybrid 62/120); stop treating gripper logic as the primary remaining fix.
-    H-EE-007 raw observed labels failed the 18-demo executability gate; H-EE-002 lower gain
-    collapsed success despite lower constraint exposure. Do not rescale raw labels, lower EE
-    gain further, add a cap rescue, or retune the H-EE-015 FSM after validation.
-  - **Still closed/blocked:** final holdout; Phase 6b vision BC.
-- One causal change per train; compare against hybrid A1 baseline (62), not pure MLP.
-- Do not re-run H-EE-022 match-set or H-EE-023 A2 as defaults; do not prioritize
-  H-EE-016/018/019 or pure gripper MSE reweight.
-- Joint-only pick-place BC is optional **SP6** (joint hybrid 97/120); defer EE pick-place.
+- Do not start vision-conditioned policy training as a residual workaround.
 
 When evaluating policies, keep observations, demonstrations, task initialization, and
 success metrics identical across action spaces. Otherwise the result will not answer the

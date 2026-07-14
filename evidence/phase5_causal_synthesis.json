@@ -1,0 +1,403 @@
+{
+  "format": "svla_phase5_causal_synthesis_v1",
+  "version": 1,
+  "date": "2026-07-14",
+  "status": "SYNTHESIS_FROZEN",
+  "scope": {
+    "description": "Durable Phase 5 causal synthesis for the pickup rescue chapter. Documentation-only freeze; no new train, re-eval, final access, or Phase 6b.",
+    "git_branch": "codex/phase5-causal-synthesis",
+    "base_commit_at_authoring": "9aa871b82301137fad31cd34f4f42787e6a7a4e0",
+    "runtime_behavior_changed": false,
+    "new_experiment_run": false,
+    "final_accessed_by_this_goal": false,
+    "phase6b_started": false
+  },
+  "rescue_program_status": "closed",
+  "final_accessed_by_this_goal": false,
+  "phase6b_started": false,
+  "source_artifacts": {
+    "evidence/phase5_v2_final_results.json": {
+      "path": "evidence/phase5_v2_final_results.json",
+      "sha256": "5a9498aa0042ef2234ac04b847bf100224d138e1f91321265a1252250bbf1ef2",
+      "exists": true,
+      "bytes": 3744
+    },
+    "evidence/phase5_v2_model_selection.json": {
+      "path": "evidence/phase5_v2_model_selection.json",
+      "sha256": "68a7483ecb47a8f4a94329d441625d7c4ffebb5d639dbba298fc6b9fa71153d9",
+      "exists": true,
+      "bytes": 2475
+    },
+    "evidence/h_ee_002_hybrid_gain_sweep.json": {
+      "path": "evidence/h_ee_002_hybrid_gain_sweep.json",
+      "sha256": "a9d7b156704d1343c0255533e5284040319cb3906a0438b83ce948d80da47b7a",
+      "exists": true,
+      "bytes": 4871
+    },
+    "evidence/h_ee_015_fsm_upper_bound.json": {
+      "path": "evidence/h_ee_015_fsm_upper_bound.json",
+      "sha256": "3466d6720b6299efd09ecea77968e67b61c1c4e8e38f1c7708c0070cec9cbf4a",
+      "exists": true,
+      "bytes": 2508
+    },
+    "outputs/h_ee_007_label_contract_probe/h_ee_007_comparison.json": {
+      "path": "outputs/h_ee_007_label_contract_probe/h_ee_007_comparison.json",
+      "sha256": "2c657e88bbb692c7951bbc44e1a641213adb45e3e888ff8f6463265f626711f4",
+      "exists": true,
+      "bytes": 43533
+    },
+    "outputs/h_ee_014_nn_gripper_global_validation/h_ee_014_comparison.json": {
+      "path": "outputs/h_ee_014_nn_gripper_global_validation/h_ee_014_comparison.json",
+      "sha256": "5ec2627ecd3400a01fe48c9f976107d11f12eda14401d09c24a6549941731b5a",
+      "exists": true,
+      "bytes": 9916
+    },
+    "reports/2026-07-09-three-decisive-tests-and-paper-strategy.md": {
+      "path": "reports/2026-07-09-three-decisive-tests-and-paper-strategy.md",
+      "sha256": "db03f6da084e89970de253b1a3243301d9f9f855a3ca81495b4b131c3ac2a5f0",
+      "exists": true,
+      "bytes": 9709
+    },
+    "reports/2026-07-13-h-ee-007-label-contract.md": {
+      "path": "reports/2026-07-13-h-ee-007-label-contract.md",
+      "sha256": "cf5f631db070ac96167833df17dd0f6c6356560797328c504519dabba80d1d8b",
+      "exists": true,
+      "bytes": 6632
+    },
+    "reports/2026-07-13-h-ee-002-hybrid-gain.md": {
+      "path": "reports/2026-07-13-h-ee-002-hybrid-gain.md",
+      "sha256": "5a79db298a402f61f78511892fa0395de9f74c37ab3c31cbdde5dc82a090a648",
+      "exists": true,
+      "bytes": 12996
+    },
+    "reports/2026-07-14-h-ee-015-fsm-upper-bound.md": {
+      "path": "reports/2026-07-14-h-ee-015-fsm-upper-bound.md",
+      "sha256": "1f195549b3610eb17263b7b1136059f6ff903002bdcc609588965ccea929bf73",
+      "exists": true,
+      "bytes": 10380
+    },
+    "reports/2026-07-09-h-ee-014-nn-gripper.md": {
+      "path": "reports/2026-07-09-h-ee-014-nn-gripper.md",
+      "sha256": "627b83eb0edc65df8559c388543c3aa70e1f90767b38c6880ee6bbf82792774c",
+      "exists": true,
+      "bytes": 11238
+    }
+  },
+  "verification": {
+    "all_required_sources_present": true,
+    "metric_consistency_checked": true,
+    "mismatches": [],
+    "method": "Recomputed SHA-256 of each listed path; compared headline metrics to AGENTS.md frozen facts."
+  },
+  "raw_protocol_v2_final": {
+    "split": "final",
+    "source": "evidence/phase5_v2_final_results.json",
+    "joint_delta": {
+      "successes": 51,
+      "total": 120,
+      "event_order_valid": 65,
+      "physical_sanity_pass": 80,
+      "per_seed_successes": [
+        8,
+        14,
+        2,
+        12,
+        15
+      ]
+    },
+    "ee_tool_delta": {
+      "successes": 28,
+      "total": 120,
+      "event_order_valid": 38,
+      "physical_sanity_pass": 68,
+      "per_seed_successes": [
+        9,
+        2,
+        3,
+        6,
+        8
+      ]
+    },
+    "note": "Registered raw pure-MLP BC under legacy_progress_phase. Both action spaces fail proposed learned-policy gates."
+  },
+  "best_fair_validation_family": {
+    "name": "H-EE-014 hybrid NN gripper + MLP arm A1 under global_gripper",
+    "source": "outputs/h_ee_014_nn_gripper_global_validation/h_ee_014_comparison.json",
+    "split": "validation",
+    "why_selected": "Strongest symmetric validation family applied identically to joint and EE; not because EE is deployment-ready.",
+    "joint_delta": {
+      "successes": 97,
+      "total": 120,
+      "event_order_valid": 107,
+      "physical_sanity_pass": 103,
+      "early_close_trials": 5,
+      "reopen_events": 0,
+      "per_seed_successes": [
+        23,
+        15,
+        21,
+        17,
+        21
+      ],
+      "worst_seed_successes": 15
+    },
+    "ee_tool_delta": {
+      "successes": 62,
+      "total": 120,
+      "event_order_valid": 79,
+      "physical_sanity_pass": 68,
+      "early_close_trials": 11,
+      "reopen_events": 0,
+      "per_seed_successes": [
+        20,
+        14,
+        9,
+        9,
+        10
+      ],
+      "worst_seed_successes": 9,
+      "residual_eo_note": "missing_lift dominant + early_close; reopen eliminated"
+    },
+    "mlp_global_gripper_baseline_for_context": {
+      "source_note": "H-EE-021 pure-MLP global_gripper comparison baseline embedded in h_ee_014_comparison.json",
+      "joint_delta_successes": 76,
+      "ee_tool_delta_successes": 49
+    }
+  },
+  "decisive_probes": [
+    {
+      "id": "H-EE-007",
+      "claim": "Raw observed EE transitions (labels) are a viable executable command-scale replacement for reconstructed policy_labels.",
+      "outcome": "rejected_at_replay_gate",
+      "metrics": {
+        "raw_labels_replay_successes": 0,
+        "raw_labels_replay_event_order_valid": 0,
+        "policy_labels_replay_successes": 18,
+        "policy_labels_replay_event_order_valid": 18,
+        "replay_total": 18,
+        "mean_arm_l2_raw_vs_policy_scale_note": "raw observed arm L2 ~30x smaller than policy_labels (audit in comparison artifact)",
+        "gripper_labels_equal": true
+      },
+      "ruled_out": [
+        "Using raw observed EE transitions as drop-in executable training/command labels under the current record-and-replay contract."
+      ],
+      "not_ruled_out": [
+        "That reconstructed policy_labels are optimal among all possible label constructions.",
+        "Alternative label reconstructions or different adapter definitions that remain executable."
+      ],
+      "evidence": [
+        "outputs/h_ee_007_label_contract_probe/h_ee_007_comparison.json",
+        "reports/2026-07-13-h-ee-007-label-contract.md"
+      ],
+      "training_started": false,
+      "final_accessed": false
+    },
+    {
+      "id": "H-EE-002",
+      "claim": "Simple monotonic reduction of frozen hybrid EE arm action gain rescues missing-lift / constraint thrash without collapsing success.",
+      "outcome": "rejected_on_validation",
+      "metrics": {
+        "gain_1_000_successes": 62,
+        "gain_0_875_successes": 5,
+        "gain_0_750_successes": 0,
+        "gain_0_875_lost_successes": 57,
+        "gain_0_875_missing_lift_recovered": 0,
+        "constraint_exposure_declined_with_lower_gain": true
+      },
+      "ruled_out": [
+        "Simple monotonic reduction of frozen EE arm gain as a rescue for the current hybrid A1 models.",
+        "Treating lower failure-conditioned constraint exposure alone as causal improvement when success is not recovered."
+      ],
+      "not_ruled_out": [
+        "Controller integration as a broader moderator of action-space learnability (different controllers, tracking contracts, or non-gain interventions).",
+        "Non-monotonic or adaptive gain schedules as new registered hypotheses."
+      ],
+      "evidence": [
+        "evidence/h_ee_002_hybrid_gain_sweep.json",
+        "reports/2026-07-13-h-ee-002-hybrid-gain.md"
+      ],
+      "training_started": false,
+      "final_accessed": false,
+      "selected_gain": null
+    },
+    {
+      "id": "H-EE-015",
+      "claim": "Structurally legal oracle gripper timing raises the frozen hybrid arm rollout ceiling on validation.",
+      "outcome": "negative_arm_ceiling",
+      "metrics": {
+        "baseline_successes": 62,
+        "fsm_successes": 47,
+        "baseline_event_order_valid": 79,
+        "fsm_event_order_valid": 77,
+        "baseline_physical_sanity_pass": 68,
+        "fsm_physical_sanity_pass": 56,
+        "baseline_worst_seed": 9,
+        "fsm_worst_seed": 5,
+        "baseline_missing_lift_eo": 30,
+        "fsm_missing_lift_eo": 42,
+        "paired_new_successes": 5,
+        "paired_lost_successes": 20,
+        "never_transitioned": 0,
+        "early_close_by_construction": 0,
+        "reopen_by_construction": 0
+      },
+      "ruled_out": [
+        "That structurally legal gripper timing is the primary remaining fix for the frozen hybrid A1 EE arm residual.",
+        "Crediting oracle early_close/reopen zeros as learned-policy gains."
+      ],
+      "not_ruled_out": [
+        "Learned arm/path/force issues that co-evolve with gripper timing in true joint training.",
+        "That a different learned gripper policy could interact better with a re-trained arm."
+      ],
+      "interpretation_guards": [
+        "Oracle diagnostic only \u2014 not learned-policy performance.",
+        "Not a literal arm upper bound because the oracle changes the closed-loop trajectory and caused paired regressions (+5/-20).",
+        "Does not replace the raw EE-vs-joint comparison ladder."
+      ],
+      "evidence": [
+        "evidence/h_ee_015_fsm_upper_bound.json",
+        "reports/2026-07-14-h-ee-015-fsm-upper-bound.md"
+      ],
+      "training_started": false,
+      "final_accessed": false,
+      "oracle_diagnostic": true,
+      "not_learned_policy_performance": true
+    },
+    {
+      "id": "H-EE-014",
+      "claim": "Hybrid NN gripper + MLP arm under global_gripper improves both action spaces on validation relative to pure-MLP global_gripper.",
+      "outcome": "confirmed_on_validation",
+      "metrics": {
+        "ee_successes": 62,
+        "joint_successes": 97,
+        "ee_event_order_valid": 79,
+        "ee_reopen_events": 0,
+        "ee_worst_seed": 9
+      },
+      "ruled_out": [
+        "That reopen/hold after close is an unsolvable residual under the pure-MLP global_gripper family (hybrid eliminates reopens)."
+      ],
+      "not_ruled_out": [
+        "That EE is ready for final access or deployment.",
+        "That hybrid makes EE universally competitive with joint under all tasks/controllers."
+      ],
+      "role_in_synthesis": "Selected fair comparison contract because applied symmetrically and is the strongest validation family \u2014 not because EE is ready.",
+      "evidence": [
+        "outputs/h_ee_014_nn_gripper_global_validation/h_ee_014_comparison.json",
+        "reports/2026-07-09-h-ee-014-nn-gripper.md"
+      ],
+      "final_accessed": false
+    }
+  ],
+  "synthesis_conclusions": {
+    "end_gripper_gain_rescue_tuning": true,
+    "end_gripper_gain_rescue_tuning_reason": "H-EE-007/002/015 close the mainline label-scale, gain-rescue, and oracle-gripper residual paths; residual program SP0\u2013SP3 already rejected match-set and A2 arm-only. Default next work is comparative research program expansion, not more rescue knobs.",
+    "do_not_claim_ee_universally_worse": true,
+    "do_not_claim_ee_universally_worse_reason": "Evidence is one simulator, one task family, one controller integration, and one BC family under a frozen contract. Gap is real and large under that contract; universality is not established.",
+    "selected_fair_contract_is_h_ee_014": true,
+    "selected_fair_contract_reason": "Symmetric application + strongest validation family; freezes comparative work without authorizing final/Phase 6b."
+  },
+  "frozen_next_program_contract": {
+    "purpose": "Primary contract for the next state-based comparative work (efficiency, pick-place, controller replication). Does not authorize final access, Phase 6b, or deployment readiness claims.",
+    "action_spaces": [
+      "joint_delta",
+      "ee_tool_delta"
+    ],
+    "policy_family": "hybrid_nn_gripper_mlp",
+    "compositor": "A1",
+    "loss": "global_gripper",
+    "nn_match": "historical",
+    "temporal_features": "legacy_progress_phase",
+    "label_source": "policy_labels",
+    "hidden_sizes": [
+      128,
+      128
+    ],
+    "epochs": 300,
+    "batch": 1024,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-05,
+    "action_gain": 1.0,
+    "model_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "strict_event_order_gates_unchanged": true,
+    "strict_physical_sanity_gates_unchanged": true,
+    "final_access_authorized": false,
+    "phase6b_authorized": false,
+    "deployment_ready_claim_authorized": false
+  },
+  "optional_mechanism_backlog": [
+    {
+      "id": "H-EE-024",
+      "status": "diagnosed_no_train",
+      "role": "optional_mechanism_backlog",
+      "note": "Impulse almost-wins diagnosed; SP3 train path only if softer close/approach is separately registered. Not mainline."
+    },
+    {
+      "id": "H-EE-017",
+      "status": "untested_optional",
+      "role": "optional_mechanism_backlog",
+      "note": "Short history / tiny GRU only if a non-Markov arm residual is carefully argued. Not mainline."
+    },
+    {
+      "id": "SP3",
+      "status": "optional_if_registered",
+      "role": "optional_mechanism_backlog",
+      "note": "Impulse train path remains optional; do not promote as default next step."
+    }
+  ],
+  "closed_mainline_rescue_queue": [
+    "H-EE-003",
+    "H-EE-007",
+    "H-EE-010",
+    "H-EE-011",
+    "H-EE-012",
+    "H-EE-013",
+    "H-EE-015",
+    "H-EE-002",
+    "H-EE-022",
+    "H-EE-023",
+    "H-JNT-001",
+    "pure_gripper_mse_reweight",
+    "gain_cap_rescue",
+    "fsm_retune",
+    "match_set_tuning_as_default",
+    "loss_profile_retune_as_default"
+  ],
+  "next_program": {
+    "ordered": [
+      {
+        "rank": 1,
+        "id": "demonstration_efficiency",
+        "name": "Preregistered demonstration-count efficiency curve",
+        "description": "Nested stratified demo subsets, common seeds, both action spaces under the frozen hybrid contract."
+      },
+      {
+        "rank": 2,
+        "id": "learned_pick_place",
+        "name": "Learned pick-place BC replication",
+        "description": "Second manipulation task for both action spaces under the frozen contract; scripted/replay plumbing already exists."
+      },
+      {
+        "rank": 3,
+        "id": "second_controller_replication",
+        "name": "Second controller integration on SO-101",
+        "description": "Compare current accumulated-target DLS vs a distinct EE tracking contract with identical observations, demos, trials, and gates."
+      }
+    ],
+    "explicitly_not_next": [
+      "More gripper/gain/FSM/match/loss rescue tuning as default",
+      "Final holdout access without new human-approved frontier progress",
+      "Phase 6b vision-conditioned BC",
+      "Language/VLA",
+      "Hardware or second robot as near-term default"
+    ]
+  },
+  "paper_strategy_pointer": "reports/2026-07-09-three-decisive-tests-and-paper-strategy.md",
+  "report": "reports/2026-07-14-phase5-causal-synthesis.md"
+}
