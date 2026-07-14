@@ -315,20 +315,70 @@ def evaluate_gain(args: argparse.Namespace) -> None:
     print(json.dumps({"gain": gain, "metrics": primary_metrics(metrics), "reproduction": reproduction}, indent=2))
 
 
-def finalize(args: argparse.Namespace) -> None:
-    protocol = load_evaluation_protocol()
-    registration = _verify_registered_inputs(
-        args.baseline_dir, args.output_dir, protocol.sha256
-    )
-    baseline_rows = load_jsonl(
-        args.output_dir / f"{gain_slug(1.0)}_policy_trials.jsonl"
-    )
-    baseline_summary = json.loads(
-        (args.output_dir / f"{gain_slug(1.0)}_summary.json").read_text(encoding="utf-8")
-    )
-    if not baseline_summary["reproduction"]["exact_primary_counts"]:
-        raise RuntimeError("cannot finalize: gain-1.0 reproduction failed")
-    baseline_metrics = baseline_summary["metrics"]
+# Immutable experiment JSONL digests. reanalyze-derived refuses to proceed if these drift.
+FROZEN_POLICY_TRIAL_SHA256 = {
+    gain_slug(1.0): "bf31302e53a4b3b054863d4d849a712f985775d1cef21754777b8a482589aca4",
+    gain_slug(0.875): "4a160d8df997816805df9090dc89eb90927eb21d561f20f8800b365763c4044d",
+    gain_slug(0.75): "9ee88278aa450f13e090820320c79ec5ea7d213d6acc83523f21f0e6d40880d6",
+}
+
+
+def _assert_frozen_jsonl(output_dir: Path) -> dict[str, list[dict[str, Any]]]:
+    rows_by_slug: dict[str, list[dict[str, Any]]] = {}
+    for gain in GAINS:
+        slug = gain_slug(gain)
+        path = output_dir / f"{slug}_policy_trials.jsonl"
+        actual = sha256_file(path)
+        expected = FROZEN_POLICY_TRIAL_SHA256[slug]
+        if actual != expected:
+            raise RuntimeError(
+                f"refusing reanalyze: immutable JSONL hash mismatch for {path.name}: "
+                f"expected {expected}, got {actual}"
+            )
+        rows = load_jsonl(path)
+        if len(rows) != TOTAL_TRIALS:
+            raise RuntimeError(f"expected {TOTAL_TRIALS} rows in {path}, got {len(rows)}")
+        trial_ids = {int(row["trial_id"]) for row in rows}
+        if trial_ids != set(range(6001, 6025)):
+            raise RuntimeError(f"unexpected trial_id set in {path.name}: {sorted(trial_ids)[:5]}...")
+        rows_by_slug[slug] = rows
+    return rows_by_slug
+
+
+def _write_gain_summary(
+    output_dir: Path,
+    *,
+    gain: float,
+    rows: list[dict[str, Any]],
+    registration: dict[str, Any],
+) -> dict[str, Any]:
+    metrics = summarize_rows(rows)
+    reproduction = reproduction_check(metrics) if float(gain) == 1.0 else None
+    payload = {
+        "format": "svla_h_ee_002_gain_summary_v1",
+        "hypothesis": HYPOTHESIS,
+        "gain": gain,
+        "metrics": metrics,
+        "reproduction": reproduction,
+        "frozen_input_manifest_sha256": sha256_file(
+            output_dir / "h_ee_002_frozen_inputs_manifest.json"
+        ),
+        "protocol": registration["protocol"],
+        "training_performed": False,
+        "final_accessed": False,
+    }
+    write_json(output_dir / f"{gain_slug(gain)}_summary.json", payload)
+    return payload
+
+
+def _finalize_from_rows(
+    output_dir: Path,
+    *,
+    baseline_rows: list[dict[str, Any]],
+    baseline_metrics: dict[str, Any],
+    candidate_rows: dict[str, list[dict[str, Any]]],
+    candidate_metrics: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
     candidates: dict[str, dict[str, Any]] = {}
     paired_output: dict[str, Any] = {
         "format": "svla_h_ee_002_paired_comparison_v1",
@@ -338,14 +388,15 @@ def finalize(args: argparse.Namespace) -> None:
     }
     for gain in (0.875, 0.75):
         slug = gain_slug(gain)
-        rows = load_jsonl(args.output_dir / f"{slug}_policy_trials.jsonl")
+        rows = candidate_rows[slug]
         align_paired_rows(baseline_rows, rows)
-        summary = json.loads((args.output_dir / f"{slug}_summary.json").read_text(encoding="utf-8"))
         paired = build_paired_comparison(baseline_rows, rows)
-        classification = classify_candidate(summary["metrics"], baseline_metrics, paired)
+        classification = classify_candidate(
+            candidate_metrics[slug], baseline_metrics, paired
+        )
         block = {
             "gain": gain,
-            "metrics": summary["metrics"],
+            "metrics": candidate_metrics[slug],
             "paired": paired,
             "classification": classification,
         }
@@ -361,7 +412,7 @@ def finalize(args: argparse.Namespace) -> None:
             "Lower clipping without successful-lift improvement is not a causal win; "
             "constraint exposure may be a symptom or consequence."
         ),
-        "registration_sha256": sha256_file(_registration_path(args.output_dir)),
+        "registration_sha256": sha256_file(_registration_path(output_dir)),
         "baseline": {"gain": 1.0, "metrics": baseline_metrics},
         "candidates": candidates,
         "joint_reference": {
@@ -373,9 +424,143 @@ def finalize(args: argparse.Namespace) -> None:
         "final_accessed": False,
         "phase_6b_started": False,
     }
-    write_json(args.output_dir / "h_ee_002_paired_comparison.json", paired_output)
-    write_json(args.output_dir / "h_ee_002_gain_sweep_summary.json", summary_payload)
-    print(json.dumps({"status": sweep, "primary_metrics": {"gain_1_000": primary_metrics(baseline_metrics), **{slug: primary_metrics(block['metrics']) for slug, block in candidates.items()}}}, indent=2))
+    write_json(output_dir / "h_ee_002_paired_comparison.json", paired_output)
+    write_json(output_dir / "h_ee_002_gain_sweep_summary.json", summary_payload)
+    return {"status": sweep, "candidates": candidates, "paired": paired_output}
+
+
+def finalize(args: argparse.Namespace) -> None:
+    protocol = load_evaluation_protocol()
+    _verify_registered_inputs(args.baseline_dir, args.output_dir, protocol.sha256)
+    baseline_rows = load_jsonl(
+        args.output_dir / f"{gain_slug(1.0)}_policy_trials.jsonl"
+    )
+    baseline_summary = json.loads(
+        (args.output_dir / f"{gain_slug(1.0)}_summary.json").read_text(encoding="utf-8")
+    )
+    if not baseline_summary["reproduction"]["exact_primary_counts"]:
+        raise RuntimeError("cannot finalize: gain-1.0 reproduction failed")
+    baseline_metrics = baseline_summary["metrics"]
+    candidate_rows: dict[str, list[dict[str, Any]]] = {}
+    candidate_metrics: dict[str, dict[str, Any]] = {}
+    for gain in (0.875, 0.75):
+        slug = gain_slug(gain)
+        rows = load_jsonl(args.output_dir / f"{slug}_policy_trials.jsonl")
+        summary = json.loads(
+            (args.output_dir / f"{slug}_summary.json").read_text(encoding="utf-8")
+        )
+        candidate_rows[slug] = rows
+        candidate_metrics[slug] = summary["metrics"]
+    result = _finalize_from_rows(
+        args.output_dir,
+        baseline_rows=baseline_rows,
+        baseline_metrics=baseline_metrics,
+        candidate_rows=candidate_rows,
+        candidate_metrics=candidate_metrics,
+    )
+    print(
+        json.dumps(
+            {
+                "status": result["status"],
+                "primary_metrics": {
+                    "gain_1_000": primary_metrics(baseline_metrics),
+                    **{
+                        slug: primary_metrics(block["metrics"])
+                        for slug, block in result["candidates"].items()
+                    },
+                },
+            },
+            indent=2,
+        )
+    )
+
+
+def reanalyze_derived(args: argparse.Namespace) -> None:
+    """Rebuild per-gain summaries and paired/sweep artifacts from frozen JSONL only.
+
+    Does not rewrite registration, frozen-input manifest, policy-trial JSONL, or models.
+    Safe after post-experiment analysis-schema fixes that change source digests.
+    """
+    registration = _load_registration(args.output_dir)
+    for immutable in (
+        "h_ee_002_registration.json",
+        "h_ee_002_frozen_inputs_manifest.json",
+        f"{gain_slug(1.0)}_policy_trials.jsonl",
+        f"{gain_slug(0.875)}_policy_trials.jsonl",
+        f"{gain_slug(0.75)}_policy_trials.jsonl",
+    ):
+        if not (args.output_dir / immutable).is_file():
+            raise FileNotFoundError(f"missing immutable artifact: {immutable}")
+
+    rows_by_slug = _assert_frozen_jsonl(args.output_dir)
+    summaries: dict[str, dict[str, Any]] = {}
+    for gain in GAINS:
+        slug = gain_slug(gain)
+        summaries[slug] = _write_gain_summary(
+            args.output_dir,
+            gain=gain,
+            rows=rows_by_slug[slug],
+            registration=registration,
+        )
+        exposure = summaries[slug]["metrics"]["constraint_exposure"]
+        if "missing_lift_gain_1_bucket" in exposure:
+            raise RuntimeError("stale misleading cohort field still present after reanalyze")
+        if "current_gain_missing_lift" not in exposure:
+            raise RuntimeError("expected current_gain_missing_lift in regenerated summary")
+
+    baseline_metrics = summaries[gain_slug(1.0)]["metrics"]
+    if not summaries[gain_slug(1.0)]["reproduction"]["exact_primary_counts"]:
+        raise RuntimeError(
+            "reanalyze aborted: gain-1.0 primary metrics no longer match frozen baseline"
+        )
+    result = _finalize_from_rows(
+        args.output_dir,
+        baseline_rows=rows_by_slug[gain_slug(1.0)],
+        baseline_metrics=baseline_metrics,
+        candidate_rows={
+            gain_slug(0.875): rows_by_slug[gain_slug(0.875)],
+            gain_slug(0.75): rows_by_slug[gain_slug(0.75)],
+        },
+        candidate_metrics={
+            gain_slug(0.875): summaries[gain_slug(0.875)]["metrics"],
+            gain_slug(0.75): summaries[gain_slug(0.75)]["metrics"],
+        },
+    )
+    if result["status"]["status"] != "rejected" or result["status"]["selected_gain"] is not None:
+        raise RuntimeError(
+            f"reanalyze changed scientific verdict: {result['status']}"
+        )
+    for slug, block in result["candidates"].items():
+        if block["paired"]["baseline_missing_lift_trial_count"] != 30:
+            raise RuntimeError(
+                f"{slug} paired baseline missing-lift cohort drifted from 30"
+            )
+    print(
+        json.dumps(
+            {
+                "reanalyze": "derived_only",
+                "status": result["status"],
+                "primary_metrics": {
+                    slug: primary_metrics(summaries[slug]["metrics"]) for slug in summaries
+                },
+                "jsonl_sha256": {
+                    f"{slug}_policy_trials.jsonl": FROZEN_POLICY_TRIAL_SHA256[slug]
+                    for slug in FROZEN_POLICY_TRIAL_SHA256
+                },
+                "derived_sha256": {
+                    name: sha256_file(args.output_dir / name)
+                    for name in (
+                        f"{gain_slug(1.0)}_summary.json",
+                        f"{gain_slug(0.875)}_summary.json",
+                        f"{gain_slug(0.75)}_summary.json",
+                        "h_ee_002_paired_comparison.json",
+                        "h_ee_002_gain_sweep_summary.json",
+                    )
+                },
+            },
+            indent=2,
+        )
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -403,6 +588,13 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate_parser = subparsers.add_parser("evaluate")
     evaluate_parser.add_argument("--gain", type=float, required=True)
     subparsers.add_parser("finalize")
+    subparsers.add_parser(
+        "reanalyze-derived",
+        help=(
+            "Rebuild gain summaries and paired/sweep JSON from immutable policy-trial "
+            "JSONL without re-running MuJoCo or rewriting registration/models."
+        ),
+    )
     return parser
 
 
@@ -419,6 +611,8 @@ def main() -> None:
         evaluate_gain(args)
     elif args.command == "finalize":
         finalize(args)
+    elif args.command == "reanalyze-derived":
+        reanalyze_derived(args)
     else:  # pragma: no cover
         raise AssertionError(args.command)
 

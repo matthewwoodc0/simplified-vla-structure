@@ -74,8 +74,34 @@
     "outputs/h_ee_002_hybrid_gain_sweep/gain_1_000_policy_trials.jsonl": "bf31302e53a4b3b054863d4d849a712f985775d1cef21754777b8a482589aca4",
     "outputs/h_ee_002_hybrid_gain_sweep/gain_0_875_policy_trials.jsonl": "4a160d8df997816805df9090dc89eb90927eb21d561f20f8800b365763c4044d",
     "outputs/h_ee_002_hybrid_gain_sweep/gain_0_750_policy_trials.jsonl": "9ee88278aa450f13e090820320c79ec5ea7d213d6acc83523f21f0e6d40880d6",
+    "outputs/h_ee_002_hybrid_gain_sweep/gain_1_000_summary.json": "714010a397c62ed896fd938a389e021cc4ca7a781c3259f7752e0871217117ea",
+    "outputs/h_ee_002_hybrid_gain_sweep/gain_0_875_summary.json": "9da667b7963010b7837a0531cad4ba69c33cf6eb21fbb227f31ae9897760349d",
+    "outputs/h_ee_002_hybrid_gain_sweep/gain_0_750_summary.json": "fca8aca5f819d59d5ddfe4510070bce9597a5c75f0aa037a36bbdf82efb00cc4",
     "outputs/h_ee_002_hybrid_gain_sweep/h_ee_002_paired_comparison.json": "a76e2f785bc11d58398e917ff628fec1de29add1b45bf0b2a009679f8fdb0645",
-    "outputs/h_ee_002_hybrid_gain_sweep/h_ee_002_gain_sweep_summary.json": "853764db0b9cd0b3c30d3159760c7245a0e623dcfe17c64072ae69be9f9eba02"
+    "outputs/h_ee_002_hybrid_gain_sweep/h_ee_002_gain_sweep_summary.json": "f9b22575611ddad87c7da9ada1a8485490ffb6c2e0b0b509ea134a196c713f40"
+  },
+  "post_experiment_analysis_schema_correction": {
+    "date": "2026-07-14",
+    "kind": "cohort_field_rename_only",
+    "old_field": "constraint_exposure.missing_lift_gain_1_bucket",
+    "new_field": "constraint_exposure.current_gain_missing_lift",
+    "reason": "Per-gain summarize_rows computed the block from that gain's own missing-lift rows; the old name incorrectly implied the fixed gain-1.0 cohort.",
+    "unchanged": {
+      "rollout_rows": true,
+      "primary_metrics": true,
+      "paired_baseline_missing_lift_trials": 30,
+      "classification": "rejected",
+      "selected_gain": null,
+      "final_accessed": false
+    },
+    "immutable_artifacts_not_rewritten": [
+      "h_ee_002_registration.json",
+      "h_ee_002_frozen_inputs_manifest.json",
+      "gain_1_000_policy_trials.jsonl",
+      "gain_0_875_policy_trials.jsonl",
+      "gain_0_750_policy_trials.jsonl"
+    ],
+    "note": "Registration may still embed the historical field name inside baseline_metrics; that file is frozen provenance, not re-derived analysis."
   },
   "training_performed": false,
   "final_accessed": false,

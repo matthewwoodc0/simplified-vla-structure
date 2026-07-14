@@ -327,7 +327,9 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "all": _constraint_block(rows),
             "success": _constraint_block(successes),
             "failure": _constraint_block(failures),
-            "missing_lift_gain_1_bucket": _constraint_block(missing),
+            # Current-gain missing-lift rows only. Not the fixed gain-1.0 paired
+            # cohort (see build_paired_comparison.baseline_missing_lift_trials).
+            "current_gain_missing_lift": _constraint_block(missing),
         },
     }
     return metrics

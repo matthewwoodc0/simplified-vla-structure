@@ -202,3 +202,61 @@ regenerate them from the separately retained frozen inputs.
 **Rejected on validation.** The experiment is complete, not blocked. No fixed lower gain was
 selected. H-EE-014 hybrid A1 at gain 1.0 remains the EE baseline; final and Phase 6b remain
 closed.
+
+## Post-Experiment Analysis-Schema Correction (2026-07-14)
+
+This section records a **labeling-only** audit fix. It does **not** change the scientific
+verdict, primary metrics, paired causality numbers, final-holdout state, or any of the 360
+MuJoCo rollout rows.
+
+### Issue
+
+`summarize_rows()` emitted:
+
+`constraint_exposure.missing_lift_gain_1_bucket`
+
+That block was computed from **each gain's own current missing-lift rows** (gain 1.0: 30,
+gain 0.875: 86, gain 0.750: 72). The name incorrectly implied a fixed original gain-1.0
+cohort on candidate summaries.
+
+The paired causal analysis was already correct and used exactly the original 30 gain-1.0
+missing-lift trials under:
+
+`constraint_deltas.baseline_missing_lift_trials`
+
+### Correction
+
+| Item | Value |
+|------|-------|
+| Old field | `constraint_exposure.missing_lift_gain_1_bucket` |
+| New field | `constraint_exposure.current_gain_missing_lift` |
+| Rollouts re-run? | **No** — re-derived from immutable JSONL only |
+| Headline metrics | **Unchanged** — 62 / 5 / 0 successes |
+| Paired baseline missing-lift cohort | **Still exactly 30** |
+| Classification / selected gain | **rejected** / **null** |
+| Final holdout | **Still closed** |
+
+Immutable artifacts were **not** rewritten:
+
+- `h_ee_002_registration.json` (source hashes still describe the registered experiment code)
+- `h_ee_002_frozen_inputs_manifest.json`
+- all three `*_policy_trials.jsonl` files (SHA-256 unchanged)
+
+Registration may still embed the historical field name inside frozen
+`baseline_metrics`; that is intentional provenance, not a re-derived analysis claim.
+
+Regeneration command (no MuJoCo):
+
+```bash
+PYTHONPATH=src '/Users/matthewwoodcock/Documents/Simplified VLA Structure/.venv/bin/python' \
+  scripts/run_h_ee_002_gain_sweep.py reanalyze-derived
+```
+
+JSONL SHA-256 (unchanged):
+
+- gain 1.0: `bf31302e53a4b3b054863d4d849a712f985775d1cef21754777b8a482589aca4`
+- gain 0.875: `4a160d8df997816805df9090dc89eb90927eb21d561f20f8800b365763c4044d`
+- gain 0.750: `9ee88278aa450f13e090820320c79ec5ea7d213d6acc83523f21f0e6d40880d6`
+
+Updated derived artifact hashes are recorded in
+`evidence/h_ee_002_hybrid_gain_sweep.json`.
