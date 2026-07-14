@@ -244,7 +244,13 @@ Ordered program under the frozen fair contract above:
 
 1. **Demonstration efficiency** — preregistered nested/stratified demo-count curve, both spaces, common seeds.
 2. **Learned pick-place BC** — both action spaces; scripted/replay plumbing already exists.
-3. **Second controller replication** — distinct SO-101 tracking contract; identical obs/demos/trials/gates.
+3. **Controller-integration replication** — Controller A (stateless
+   current-measured-pose-plus-delta DLS; current learned EE rollout) vs Controller B
+   (persistent-target-lag DLS, same underlying DLS solver). Not an independent IK
+   algorithm. Require identical task specs, observation schema, evaluation trials, and
+   gates; controller-specific executable demos/labels with exact joint/EE demo parity
+   within each controller; do **not** require byte-identical realized demos across
+   controllers.
 
 Do **not** treat residual rescue knobs as the default queue. Synthesis:
 `evidence/phase5_causal_synthesis.json`.
@@ -259,7 +265,7 @@ Do **not** treat residual rescue knobs as the default queue. Synthesis:
 |-----:|----|------|----------|-------|
 | 1 | efficiency | Nested stratified demo-count curve | Yes | Fair contract frozen; preregister counts and seeds |
 | 2 | pick-place BC | Learned pick-place, both spaces | Yes | Comparative replication, not joint-only residual detour |
-| 3 | controller-2 | Second SO-101 controller integration | Yes | Keep obs/demos/trials/gates identical |
+| 3 | controller-2 | Controller-integration replication (A: stateless measured-pose+delta DLS; B: persistent-target-lag DLS, same solver) | Yes | Same task/obs/trials/gates; controller-specific demos; joint/EE parity within controller; not byte-identical demos across controllers |
 
 ### Optional mechanism backlog (not default)
 
@@ -340,7 +346,7 @@ rejected; H-EE-024 diagnosed optional backlog only.
 
 1. **Demonstration efficiency** — preregister nested/stratified demo counts under frozen fair contract.
 2. **Learned pick-place BC** — both action spaces under the same contract.
-3. **Second controller replication** — distinct SO-101 tracking contract; identical obs/demos/gates.
+3. **Controller-integration replication** — Controller A (stateless measured-pose+delta DLS) vs B (persistent-target-lag DLS, same solver); controller-specific demos; joint/EE parity within controller; identical task/obs/trials/gates.
 4. **Optional only:** H-EE-024/SP3 impulse train if registered; H-EE-017 history only with non-Markov arm argument.
 5. **SP5 final** — still closed; EE 62/worst 9/phys 68 short of legacy_84 and stretched frontier.
 6. **SP7** Phase 6b blocked; Phase 7 language/VLA is not the next step.
@@ -381,7 +387,7 @@ rejected; H-EE-024 diagnosed optional backlog only.
 | 2026-07-13 | H-EE-007 | Raw observed EE labels vs reconstructed executable EE labels; 48,112-sample audit then 18-demo replay gate | **Rejected at replay; no train** — control 18/18, raw 0/18 success and 0/18 event-order. Raw arm labels were ~30× smaller on mean L2; gripper labels were identical. Final not accessed | `outputs/h_ee_007_label_contract_probe/h_ee_007_comparison.json`, `reports/2026-07-13-h-ee-007-label-contract.md` |
 | 2026-07-13 | H-EE-002 | Frozen H-EE-014 hybrid A1, inference-only EE arm gain sweep (1.0/0.875/0.750), protocol-v2 validation, 5 seeds × 24 | **Rejected** — 1.0 reproduced 62/120 exactly; 0.875 fell to 5/120 and 0.750 to 0/120. Lower failure-conditioned constraint exposure did not recover a single prior missing-lift trial; it lost 57/62 baseline successes and increased missing-lift/early-close. No training, cap rescue, final, or Phase 6b access | `outputs/h_ee_002_hybrid_gain_sweep/h_ee_002_gain_sweep_summary.json`, `evidence/h_ee_002_hybrid_gain_sweep.json`, `reports/2026-07-13-h-ee-002-hybrid-gain.md` |
 | 2026-07-14 | H-EE-015 | Frozen hybrid A1 EE arm + fixed oracle gripper FSM (privileged grasp-target thresholds), protocol-v2 validation, 5 seeds × 24, no train | **`negative_arm_ceiling`** — success 62→**47**/120, EO 79→77, phys 68→**56**, worst 9→**5**, missing_lift 30→**42**, early_close 11→0 and reopen 0 by construction, never-transitioned 0, impulse almost-wins 15→24, paired +5/−20 net −15. Not learned-policy performance; final closed | `outputs/h_ee_015_fsm_upper_bound/h_ee_015_summary.json`, `h_ee_015_paired_comparison.json`, `h_ee_015_experiment_manifest.json`, `reports/2026-07-14-h-ee-015-fsm-upper-bound.md` |
-| 2026-07-14 | Phase 5 synthesis | Documentation-only causal freeze of pickup rescue chapter; no train/re-eval/final/Phase 6b | **`SYNTHESIS_FROZEN`** — rescue_program_status closed; fair contract = hybrid A1 + global_gripper + historical match + policy_labels + gain 1.0; next program = efficiency → pick-place → second controller; H-EE-024/017 optional backlog only | `evidence/phase5_causal_synthesis.json`, `reports/2026-07-14-phase5-causal-synthesis.md` |
+| 2026-07-14 | Phase 5 synthesis | Documentation-only causal freeze of pickup rescue chapter; no train/re-eval/final/Phase 6b | **`SYNTHESIS_FROZEN`** — rescue_program_status closed; fair contract = hybrid A1 + global_gripper + historical match + policy_labels + gain 1.0; next program = efficiency → pick-place → controller-integration replication; H-EE-024/017 optional backlog only | `evidence/phase5_causal_synthesis.json`, `reports/2026-07-14-phase5-causal-synthesis.md` |
 
 *(Add a row when you run a hypothesis test — do not infer from loss curves alone.)*
 

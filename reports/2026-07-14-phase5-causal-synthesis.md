@@ -15,9 +15,9 @@ Three decisive probes after the hybrid H-EE-014 baseline closed the mainline res
 
 **What to believe now:** stop default gripper/gain/FSM/match/loss rescue tuning. Keep
 hybrid A1 + `global_gripper` as the **fair comparative contract** for the next program
-(demonstration efficiency → learned pick-place → second controller). Do **not** claim that
-EE actions are universally worse than joint actions — the evidence is one sim, one task
-family, one controller integration, and one BC family.
+(demonstration efficiency → learned pick-place → controller-integration replication). Do
+**not** claim that EE actions are universally worse than joint actions — the evidence is
+one sim, one task family, one controller integration, and one BC family.
 
 Durable record: [`evidence/phase5_causal_synthesis.json`](../evidence/phase5_causal_synthesis.json).
 
@@ -92,7 +92,13 @@ This freeze does **not** authorize final access, Phase 6b, or deployment claims.
 
 1. **Demonstration efficiency** — preregistered nested/stratified demo-count curve, common seeds, both spaces.
 2. **Learned pick-place** — second manipulation task under the same fair contract (scripted/replay already exist).
-3. **Second controller replication** — distinct SO-101 tracking contract with identical obs/demos/trials/gates.
+3. **Controller-integration replication** — Controller A (stateless
+   current-measured-pose-plus-delta DLS; current learned EE rollout) vs Controller B
+   (persistent-target-lag DLS, same underlying DLS solver). Not an independent IK
+   algorithm. Require identical task specs, observation schema, evaluation trials, and
+   gates; controller-specific executable demos/labels with exact joint/EE demo parity
+   within each controller; do **not** require byte-identical realized demos across
+   controllers.
 
 Optional mechanism backlog only (not mainline): H-EE-024/SP3 impulse train path if separately registered; H-EE-017 history/GRU only with a careful non-Markov arm argument.
 
@@ -151,9 +157,10 @@ No new videos. Existing residual review clips remain under
   residual routes; SP1/SP2 already rejected match-set and A2 arm-only.
 - Decision: freeze H-EE-014 hybrid A1 + `global_gripper` as the fair comparative contract.
   Reason: strongest symmetric validation family; not a claim that EE is ready.
-- Decision: point live docs at efficiency → pick-place → second controller.
+- Decision: point live docs at efficiency → pick-place → controller-integration replication.
   Reason: matches the paper strategy after decisive tests
-  (`reports/2026-07-09-three-decisive-tests-and-paper-strategy.md`).
+  (`reports/2026-07-09-three-decisive-tests-and-paper-strategy.md`), with the controller
+  comparison scoped as integration replication (A vs B DLS wrappers), not a new IK algorithm.
 - Decision: move H-EE-024/SP3 and H-EE-017 to optional mechanism backlog.
   Reason: mechanism interest remains, but they are not the default next comparative step.
 - Decision: do not rewrite historical experiment reports.
@@ -178,7 +185,9 @@ No new videos. Existing residual review clips remain under
 
 - [ ] Preregister the demonstration-efficiency curve under the frozen contract.
 - [ ] Design learned pick-place BC for both action spaces under the same contract.
-- [ ] Specify the second controller integration comparison with identical obs/demos/gates.
+- [ ] Specify controller-integration replication (A: stateless measured-pose+delta DLS vs B:
+      persistent-target-lag DLS) with identical task/obs/trials/gates and controller-specific
+      demos (joint/EE parity within controller).
 - [ ] Keep final holdout and Phase 6b closed unless scope is explicitly reopened.
 - [ ] Do not promote gain/cap, FSM retune, match-set, or loss reweight as default next work.
 

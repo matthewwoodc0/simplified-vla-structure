@@ -386,8 +386,8 @@
       {
         "rank": 3,
         "id": "second_controller_replication",
-        "name": "Second controller integration on SO-101",
-        "description": "Compare current accumulated-target DLS vs a distinct EE tracking contract with identical observations, demos, trials, and gates."
+        "name": "Controller-integration replication on SO-101",
+        "description": "Compare Controller A (stateless current-measured-pose-plus-delta DLS; current learned EE rollout) vs Controller B (persistent-target-lag DLS using the same underlying DLS solver). This is controller-integration replication, not an independent IK algorithm. Require identical task specs, observation schema, evaluation trials, and gates; use controller-specific executable demos/labels with exact joint/EE demo parity within each controller; do not require byte-identical realized demonstrations across controllers."
       }
     ],
     "explicitly_not_next": [

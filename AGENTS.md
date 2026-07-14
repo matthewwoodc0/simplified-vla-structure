@@ -212,23 +212,22 @@ needs review. Do not overclaim from passing tests alone.
   = 62→5→0/120), H-EE-015 (oracle FSM 47 vs hybrid 62). Fair contract freeze: hybrid A1 +
   `global_gripper` + historical match + `legacy_progress_phase` + `policy_labels` + gain 1.0
   + seeds 0–4 (validation family joint **97**/EE **62**; raw final still joint **51**/EE
-  **28**). Next program: demonstration efficiency → learned pick-place → second controller
-  replication. Do not claim EE is universally worse. Final not accessed; Phase 6b not
-  started. Evidence: `evidence/phase5_causal_synthesis.json`. Report:
+  **28**). Next program: demonstration efficiency → learned pick-place →
+  controller-integration replication. Do not claim EE is universally worse. Final not
+  accessed; Phase 6b not started. Evidence: `evidence/phase5_causal_synthesis.json`. Report:
   `reports/2026-07-14-phase5-causal-synthesis.md`.
 
 ## YOU ARE HERE
 
-**Integration target:** synthesis lives on branch `codex/phase5-causal-synthesis` until
-merged; `main` already holds the audited Phase 6a infrastructure and post-H-EE-014 residual
-evidence. Create a focused research branch for each next-program experiment; do not run new
-hypotheses directly on `main`.
+**Integration target:** `main` contains the reviewed Phase 5 causal synthesis freeze plus
+the audited Phase 6a infrastructure and post-H-EE-014 residual evidence. Create a focused
+research branch for each later experiment; do not run new hypotheses directly on `main`.
 
 **Current phase:** Phase 5 pickup **rescue program closed** (synthesis freeze). Phase 6a
 vision infrastructure remains plumbing-only. The learned-policy comparison uses the frozen
-fair hybrid contract for the **next comparative program** (efficiency, pick-place, second
-controller). The final holdout remains **closed**, and Phase 6b vision-conditioned
-policy/VLA work is **not started**.
+fair hybrid contract for the **next comparative program** (efficiency, pick-place,
+controller-integration replication). The final holdout remains **closed**, and Phase 6b
+vision-conditioned policy/VLA work is **not started**.
 
 Phases 1–5 plus Phase 6a infrastructure are built: MuJoCo SO-101 arm, damped-least-squares
 IK controller, action-space adapters, table/cube pickup task, scripted demonstrations,
@@ -496,8 +495,13 @@ tuning. Durable freeze: `evidence/phase5_causal_synthesis.json`.
    action spaces under the frozen hybrid A1 + `global_gripper` contract.
 2. **Learned pick-place BC** — second manipulation task for **both** action spaces under the
    same contract (scripted/replay plumbing already exists).
-3. **Second controller replication** — distinct SO-101 tracking contract with identical
-   observations, demos, trials, and gates.
+3. **Controller-integration replication** — Controller A (stateless
+   current-measured-pose-plus-delta DLS; current learned EE rollout) vs Controller B
+   (persistent-target-lag DLS, same underlying DLS solver). Not an independent IK
+   algorithm. Require identical task specs, observation schema, evaluation trials, and
+   gates; controller-specific executable demos/labels with exact joint/EE demo parity
+   within each controller; do **not** require byte-identical realized demos across
+   controllers.
 
 ### Frozen fair contract (do not silently change)
 

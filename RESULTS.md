@@ -97,8 +97,13 @@ gripper/gain rescue. Ordered next program under the frozen fair contract:
 1. **Demonstration efficiency** — preregistered nested/stratified demo-count curve, both spaces.
 2. **Learned pick-place BC** — second manipulation task for both action spaces (scripted/replay
    already exist); not a joint-only detour framed as residual rescue.
-3. **Second controller replication** — distinct SO-101 tracking contract with identical
-   observations, demos, trials, and gates.
+3. **Controller-integration replication** — Controller A (stateless
+   current-measured-pose-plus-delta DLS; current learned EE rollout) vs Controller B
+   (persistent-target-lag DLS, same underlying DLS solver). Not an independent IK
+   algorithm. Require identical task specs, observation schema, evaluation trials, and
+   gates; controller-specific executable demos/labels with exact joint/EE demo parity
+   within each controller; do **not** require byte-identical realized demos across
+   controllers.
 
 Optional mechanism backlog only: H-EE-024/SP3 impulse path if registered; H-EE-017 history
 only with a careful non-Markov arm argument. Phase 6b remains blocked. Best fair validation
