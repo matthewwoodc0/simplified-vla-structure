@@ -28,6 +28,7 @@ from svla.h_ee_015 import (
     OracleFsmHybridPolicy,
     align_paired_rows,
     assert_finalize_artifact_hashes,
+    assert_registration_mutable,
     build_paired_comparison,
     build_registration,
     classify_verdict,
@@ -82,20 +83,25 @@ def register(args: argparse.Namespace) -> None:
     output_dir = Path(args.output_dir)
     baseline_dir = Path(args.baseline_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    # Unconditional: --force cannot rewrite registration after efficacy starts.
+    assert_registration_mutable(output_dir)
     reg_path = _registration_path(output_dir)
     if reg_path.exists() and not args.force:
         raise RuntimeError(
             f"registration already exists at {reg_path}; "
-            "refusing to overwrite (pass --force only before efficacy)"
+            "pass --force only before any efficacy artifact exists"
         )
 
     protocol = load_evaluation_protocol()
     metadata = protocol.metadata("validation")
+    # Optional independent primary path. Same path as baseline_dir is inventory-only.
+    primary_source = getattr(args, "primary_source_dir", None)
+    source_dir = Path(primary_source) if primary_source is not None else None
     frozen = verify_frozen_inputs(
         baseline_dir,
         protocol_hash=str(metadata["config_sha256"]),
         protocol_version=int(metadata["version"]),
-        source_dir=baseline_dir,
+        source_dir=source_dir,
     )
     baseline_rows = load_jsonl(_baseline_jsonl(baseline_dir))
     if len(baseline_rows) != TOTAL_TRIALS:
@@ -478,13 +484,25 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_BASELINE_DIR,
         help="frozen H-EE-014 hybrid validation directory",
     )
+    parser.add_argument(
+        "--primary-source-dir",
+        type=Path,
+        default=None,
+        help=(
+            "optional distinct primary checkout of H-EE-014 artifacts for "
+            "independent copy comparison; ignored if identical to --baseline-dir"
+        ),
+    )
     parser.add_argument("--max-steps", type=int, default=3200)
     parser.add_argument("--search-window", type=int, default=120)
     parser.add_argument("--action-gain", type=float, default=1.0)
     parser.add_argument(
         "--force",
         action="store_true",
-        help="allow overwrite of registration/eval artifacts (pre-efficacy only)",
+        help=(
+            "allow overwrite of registration only before efficacy artifacts exist; "
+            "cannot rewrite registration once trials/summary/paired/manifest exist"
+        ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("register", help="freeze hashes, keys, FSM, verdict bars")

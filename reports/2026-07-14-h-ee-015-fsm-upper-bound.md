@@ -59,9 +59,34 @@ Every experimental row/summary/manifest carries:
 
 ## Evidence And Verification
 
+Commands below use the **primary checkout** paths (venv + H-EE-014 baseline live there).
+The isolated experiment worktree does not contain `.venv` or the H-EE-014 output tree; after
+merge into the primary checkout, relative `outputs/...` paths and the local `.venv` work.
+
+Primary absolute paths used during this experiment:
+
+```text
+REPO="/Users/matthewwoodcock/Documents/Simplified VLA Structure"
+WT="/Users/matthewwoodcock/Documents/Simplified-VLA-h-ee-015"
+PY="$REPO/.venv/bin/python"
+BASE="$REPO/outputs/h_ee_014_nn_gripper_global_validation"
+OUT="$WT/outputs/h_ee_015_fsm_upper_bound"
+```
+
 ### Registration (pre-efficacy)
 
 ```bash
+cd "$WT"
+PYTHONPATH=src "$PY" scripts/run_h_ee_015_fsm_upper_bound.py \
+  --baseline-dir "$BASE" \
+  --output-dir "$OUT" \
+  register
+```
+
+After integration into the primary checkout:
+
+```bash
+cd "$REPO"
 PYTHONPATH=src .venv/bin/python scripts/run_h_ee_015_fsm_upper_bound.py \
   --baseline-dir outputs/h_ee_014_nn_gripper_global_validation \
   --output-dir outputs/h_ee_015_fsm_upper_bound \
@@ -70,23 +95,45 @@ PYTHONPATH=src .venv/bin/python scripts/run_h_ee_015_fsm_upper_bound.py \
 
 - Result: exact H-EE-014 primary reproduction (62/79/68, seeds [20,14,9,9,10], missing_lift 30).
 - 120 paired `(seed, trial_id)` keys frozen; FSM thresholds and verdict bars frozen.
+- Frozen-input hashing is **inventory-only** (hashes of the baseline directory files). An
+  independent source-copy comparison requires a distinct `--primary-source-dir`; the same
+  path as `--baseline-dir` is not treated as an independent copy check.
+- Registration becomes **immutable** once any efficacy artifact exists
+  (trials/summary/paired/manifest); `--force` cannot bypass that.
 - Output: `outputs/h_ee_015_fsm_upper_bound/h_ee_015_registration.json`
 
 ### Focused tests
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pytest tests/test_h_ee_015.py -v
+cd "$WT"
+PYTHONPATH=src "$PY" -m pytest tests/test_h_ee_015.py -v
 ```
 
-- Result: 24 passed (threshold sides + equality, simultaneous transition, latch/no-reopen,
-  arm 5-D identity, default hybrid has no FSM hook, oracle flags, pairing, verdict bounds).
+- Result at scientific commit `997dfee`: **25 passed** (threshold sides + equality,
+  simultaneous transition, latch/no-reopen, arm 5-D identity, default hybrid has no FSM hook,
+  oracle flags, pairing, verdict bounds, finalize hash order).
+- Result after pre-merge cleanup: **32 passed** (adds registration immutability after
+  efficacy artifacts, and inventory-only vs independent source-copy provenance).
+
+### Full repository suite
+
+```bash
+cd "$WT"
+PYTHONPATH=src "$PY" -m pytest -q
+```
+
+- Result: **160 passed, 1 skipped**.
+- Skip reason: an H-EE-002 test depends on gitignored gain-sweep artifacts under
+  `outputs/h_ee_002_hybrid_gain_sweep/`, which are absent from this worktree. Unrelated to
+  H-EE-015.
 
 ### Smoke
 
 ```bash
-PYTHONPATH=src .venv/bin/python scripts/run_h_ee_015_fsm_upper_bound.py \
-  --baseline-dir outputs/h_ee_014_nn_gripper_global_validation \
-  --output-dir outputs/h_ee_015_fsm_upper_bound \
+cd "$WT"
+PYTHONPATH=src "$PY" scripts/run_h_ee_015_fsm_upper_bound.py \
+  --baseline-dir "$BASE" \
+  --output-dir "$OUT" \
   smoke
 ```
 
@@ -96,13 +143,14 @@ PYTHONPATH=src .venv/bin/python scripts/run_h_ee_015_fsm_upper_bound.py \
 ### Full validation (5 seeds × 24 = 120)
 
 ```bash
-PYTHONPATH=src .venv/bin/python scripts/run_h_ee_015_fsm_upper_bound.py \
-  --baseline-dir outputs/h_ee_014_nn_gripper_global_validation \
-  --output-dir outputs/h_ee_015_fsm_upper_bound \
+cd "$WT"
+PYTHONPATH=src "$PY" scripts/run_h_ee_015_fsm_upper_bound.py \
+  --baseline-dir "$BASE" \
+  --output-dir "$OUT" \
   evaluate
-PYTHONPATH=src .venv/bin/python scripts/run_h_ee_015_fsm_upper_bound.py \
-  --baseline-dir outputs/h_ee_014_nn_gripper_global_validation \
-  --output-dir outputs/h_ee_015_fsm_upper_bound \
+PYTHONPATH=src "$PY" scripts/run_h_ee_015_fsm_upper_bound.py \
+  --baseline-dir "$BASE" \
+  --output-dir "$OUT" \
   finalize
 ```
 
@@ -185,12 +233,13 @@ No new videos were generated for this diagnostic. Residual visual freeze from SP
 
 ## Files Changed
 
-- `src/svla/h_ee_015.py` — experiment library (FSM, wrapper, metrics, verdict).
+- `src/svla/h_ee_015.py` — experiment library (FSM, wrapper, metrics, verdict,
+  registration immutability, inventory-only vs independent frozen-input provenance).
 - `src/svla/state_bc.py` — opt-in oracle signal hook in `rollout_policy`.
 - `scripts/run_h_ee_015_fsm_upper_bound.py` — dedicated runner; finalize writes the
   final summary before hashing it into the experiment manifest, then runs
-  `assert_finalize_artifact_hashes`.
-- `tests/test_h_ee_015.py` — focused unit tests, including stale-summary-hash detection.
+  `assert_finalize_artifact_hashes`; `register --force` cannot rewrite after efficacy.
+- `tests/test_h_ee_015.py` — focused unit tests (32 after cleanup).
 - `outputs/h_ee_015_fsm_upper_bound/*` — registration, trials, summary, paired, manifest.
 - `reports/2026-07-14-h-ee-015-fsm-upper-bound.md` — this report.
 - `researchnotes.md`, `RESULTS.md`, `AGENTS.md` — status / next-step updates.

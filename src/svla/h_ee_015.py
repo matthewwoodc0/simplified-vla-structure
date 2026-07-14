@@ -305,6 +305,40 @@ def required_frozen_relative_paths() -> list[Path]:
     return paths
 
 
+EFFICACY_ARTIFACT_NAMES = (
+    "h_ee_015_trials.jsonl",
+    "h_ee_015_summary.json",
+    "h_ee_015_paired_comparison.json",
+    "h_ee_015_experiment_manifest.json",
+)
+
+
+def existing_efficacy_artifacts(output_dir: Path) -> list[str]:
+    """Return efficacy artifact basenames present under ``output_dir``."""
+
+    output_dir = Path(output_dir)
+    return [
+        name
+        for name in EFFICACY_ARTIFACT_NAMES
+        if (output_dir / name).is_file()
+    ]
+
+
+def assert_registration_mutable(output_dir: Path) -> None:
+    """Refuse registration rewrite once any efficacy artifact exists.
+
+    This is unconditional: ``--force`` must not bypass the preregistration
+    immutability contract after trials/summary/paired/manifest exist.
+    """
+
+    found = existing_efficacy_artifacts(output_dir)
+    if found:
+        raise RuntimeError(
+            "registration is immutable after efficacy evaluation begins; "
+            f"found efficacy artifacts: {found}"
+        )
+
+
 def verify_frozen_inputs(
     baseline_dir: Path,
     *,
@@ -313,9 +347,17 @@ def verify_frozen_inputs(
     source_dir: Path | None = None,
     policy_loader: Callable[[Path], Any] = load_policy,
 ) -> dict[str, Any]:
-    """Verify every required frozen H-EE-014 EE hybrid file and load policies."""
+    """Verify every required frozen H-EE-014 EE hybrid file and load policies.
+
+    ``source_dir`` enables an *independent* copy comparison only when it resolves
+    to a different path than ``baseline_dir``. Passing the same directory is treated
+    as inventory-only hashing (not an independent source-copy verification).
+    """
 
     baseline_dir = baseline_dir.resolve()
+    independent_source = (
+        source_dir is not None and Path(source_dir).resolve() != baseline_dir
+    )
     inventory: list[dict[str, Any]] = []
     for relative in required_frozen_relative_paths():
         local = baseline_dir / relative
@@ -327,8 +369,8 @@ def verify_frozen_inputs(
             "sha256": digest,
             "size_bytes": local.stat().st_size,
         }
-        if source_dir is not None:
-            source = source_dir.resolve() / relative
+        if independent_source:
+            source = Path(source_dir).resolve() / relative
             if not source.is_file():
                 raise FileNotFoundError(f"missing primary source input: {source}")
             source_digest = sha256_file(source)
@@ -393,8 +435,16 @@ def verify_frozen_inputs(
 
     return {
         "baseline_dir": str(baseline_dir),
-        "source_dir": None if source_dir is None else str(source_dir.resolve()),
-        "all_copies_match_primary": bool(source_dir is not None),
+        "source_dir": (
+            str(Path(source_dir).resolve()) if independent_source else None
+        ),
+        "source_comparison": (
+            "independent_copy" if independent_source else "inventory_only"
+        ),
+        "all_copies_match_primary": bool(
+            independent_source
+            and all(row.get("copy_matches_primary") for row in inventory)
+        ),
         "file_inventory": inventory,
         "loaded_models": loaded_models,
     }

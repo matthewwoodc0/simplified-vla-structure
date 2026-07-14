@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from svla.h_ee_015 import (
+    EFFICACY_ARTIFACT_NAMES,
     EXPECTED_BASELINE_PRIMARY,
     FSM_CLOSE_COMMAND,
     FSM_GRIPPER_OBJECT_DISTANCE_MAX_M,
@@ -26,9 +27,11 @@ from svla.h_ee_015 import (
     align_paired_rows,
     assert_finalize_artifact_hashes,
     assert_oracle_flags,
+    assert_registration_mutable,
     build_paired_comparison,
     build_registration,
     classify_verdict,
+    existing_efficacy_artifacts,
     is_missing_lift_eo,
     sha256_file,
     summarize_baseline_rows,
@@ -563,6 +566,106 @@ def test_summarize_baseline_rows_primary_fields():
     assert metrics["successes"] == 20
     assert metrics["per_seed_successes"][0] == 20
     assert len(metrics["paired_keys"]) == TOTAL_TRIALS
+
+
+def test_registration_mutable_before_efficacy_artifacts(tmp_path: Path):
+    assert existing_efficacy_artifacts(tmp_path) == []
+    assert_registration_mutable(tmp_path)  # no raise
+
+
+@pytest.mark.parametrize("artifact_name", list(EFFICACY_ARTIFACT_NAMES))
+def test_registration_immutable_once_any_efficacy_artifact_exists(
+    tmp_path: Path, artifact_name: str
+):
+    (tmp_path / artifact_name).write_text("x\n", encoding="utf-8")
+    found = existing_efficacy_artifacts(tmp_path)
+    assert artifact_name in found
+    with pytest.raises(RuntimeError, match="immutable after efficacy"):
+        assert_registration_mutable(tmp_path)
+
+
+def test_registration_immutable_even_when_registration_json_also_present(tmp_path: Path):
+    # --force may rewrite registration only when no efficacy artifacts exist.
+    (tmp_path / "h_ee_015_registration.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "h_ee_015_trials.jsonl").write_text("{}\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="immutable after efficacy"):
+        assert_registration_mutable(tmp_path)
+
+
+def test_verify_frozen_inputs_same_source_is_inventory_only(tmp_path: Path, monkeypatch):
+    """Same baseline_dir and source_dir must not claim independent copy match."""
+
+    from svla import h_ee_015 as mod
+
+    # Build a minimal fake inventory tree so verify can list relative paths.
+    # We only test the source_comparison branch; short-circuit missing files.
+    def fake_required():
+        return [Path("models") / "dummy.json"]
+
+    def fake_sha(path: Path) -> str:
+        return "abc"
+
+    class _FakeHybrid(HybridNNGripperMLPPolicy):
+        def __init__(self) -> None:
+            # Bypass HybridNNGripperMLPPolicy.__init__; only attrs used by verify.
+            self.action_space = "ee_tool_delta"
+            self._evaluation_config_hash = "proto"
+            self._evaluation_protocol_version = 2
+
+        @property
+        def evaluation_config_hash(self) -> str:
+            return self._evaluation_config_hash
+
+        @evaluation_config_hash.setter
+        def evaluation_config_hash(self, value: str) -> None:
+            self._evaluation_config_hash = str(value)
+
+        @property
+        def evaluation_protocol_version(self) -> int:
+            return self._evaluation_protocol_version
+
+        @evaluation_protocol_version.setter
+        def evaluation_protocol_version(self, value: int) -> None:
+            self._evaluation_protocol_version = int(value)
+
+    def fake_load(path: Path):
+        return _FakeHybrid()
+
+    monkeypatch.setattr(mod, "required_frozen_relative_paths", fake_required)
+    monkeypatch.setattr(mod, "sha256_file", fake_sha)
+    monkeypatch.setattr(mod, "SEEDS", (0,))
+    monkeypatch.setattr(mod, "model_manifest_name", lambda seed: "dummy.json")
+
+    models = tmp_path / "models"
+    models.mkdir()
+    manifest = {
+        "format": "svla_hybrid_nn_gripper_mlp_manifest_v1",
+        "action_space": "ee_tool_delta",
+        "policy_type": "hybrid_nn_gripper_mlp",
+        "recipe": "A1_compositor",
+        "mlp_temporal_feature_mode": "legacy_progress_phase",
+        "match_contract": "historical_object_contact",
+        "match_feature_indices": [18, 19, 20, 28, 29, 30],
+        "evaluation_config_hash": "proto",
+        "evaluation_protocol_version": 2,
+        "mlp_path": "dummy_mlp.npz",
+        "nn_path": "dummy_nn.npz",
+    }
+    (models / "dummy.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (models / "dummy_mlp.npz").write_bytes(b"mlp")
+    (models / "dummy_nn.npz").write_bytes(b"nn")
+
+    result = mod.verify_frozen_inputs(
+        tmp_path,
+        protocol_hash="proto",
+        protocol_version=2,
+        source_dir=tmp_path,  # tautological path
+        policy_loader=fake_load,
+    )
+    assert result["source_comparison"] == "inventory_only"
+    assert result["source_dir"] is None
+    assert result["all_copies_match_primary"] is False
+    assert "copy_matches_primary" not in result["file_inventory"][0]
 
 
 def test_assert_finalize_artifact_hashes_detects_stale_summary_sha(tmp_path: Path):
