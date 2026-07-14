@@ -1,0 +1,109 @@
+{
+  "format": "svla_h_ee_002_durable_evidence_v1",
+  "hypothesis": "H-EE-002",
+  "status": "rejected",
+  "selected_gain": null,
+  "scope": "inference-only frozen H-EE-014 hybrid A1 EE validation",
+  "protocol": {
+    "config_sha256": "bffd862d76f401a9b512826ec8ca1207fba88bd12539a59370716bd22e946f99",
+    "split": "validation",
+    "seeds": [0, 1, 2, 3, 4],
+    "trials_per_seed": 24
+  },
+  "metrics": {
+    "gain_1_000": {
+      "successes": 62,
+      "event_order_valid": 79,
+      "physical_sanity_pass": 68,
+      "per_seed_successes": [20, 14, 9, 9, 10],
+      "worst_seed": 9,
+      "missing_lift_eo": 30,
+      "early_close": 11,
+      "reopen_events": 0,
+      "controller_failures": 0
+    },
+    "gain_0_875": {
+      "successes": 5,
+      "event_order_valid": 9,
+      "physical_sanity_pass": 26,
+      "per_seed_successes": [5, 0, 0, 0, 0],
+      "worst_seed": 0,
+      "missing_lift_eo": 86,
+      "early_close": 25,
+      "reopen_events": 0,
+      "controller_failures": 0
+    },
+    "gain_0_750": {
+      "successes": 0,
+      "event_order_valid": 0,
+      "physical_sanity_pass": 37,
+      "per_seed_successes": [0, 0, 0, 0, 0],
+      "worst_seed": 0,
+      "missing_lift_eo": 72,
+      "early_close": 48,
+      "reopen_events": 0,
+      "controller_failures": 0
+    }
+  },
+  "paired_evidence": {
+    "gain_0_875": {
+      "new_successes": 0,
+      "lost_successes": 57,
+      "baseline_missing_lift_recovered_to_success": 0,
+      "baseline_missing_lift_still_missing": 25,
+      "baseline_missing_lift_joint_limit_mean_steps": [964.6333333333333, 516.8],
+      "baseline_missing_lift_infeasible_mean_steps": [490.3, 84.46666666666667]
+    },
+    "gain_0_750": {
+      "new_successes": 0,
+      "lost_successes": 62,
+      "baseline_missing_lift_recovered_to_success": 0,
+      "baseline_missing_lift_still_missing": 19,
+      "baseline_missing_lift_joint_limit_mean_steps": [964.6333333333333, 364.3],
+      "baseline_missing_lift_infeasible_mean_steps": [490.3, 1.6]
+    }
+  },
+  "failure_constraint_exposure_rates": {
+    "gain_1_000": {"joint_limit": 0.28243515603388086, "infeasible": 0.15425552935597328},
+    "gain_0_875": {"joint_limit": 0.15383647235849215, "infeasible": 0.02775617969357446},
+    "gain_0_750": {"joint_limit": 0.10393489583333333, "infeasible": 0.0017864583333333333}
+  },
+  "artifact_hashes": {
+    "outputs/h_ee_002_hybrid_gain_sweep/h_ee_002_registration.json": "092315898fc31715dd6bad05299745815a36d1a886caba6f77a9a0476a998a7f",
+    "outputs/h_ee_002_hybrid_gain_sweep/h_ee_002_frozen_inputs_manifest.json": "721643d44e50932d6cc70ba0bab1310c1eb76dc99934d094a6be396dd63dfd7a",
+    "outputs/h_ee_002_hybrid_gain_sweep/gain_1_000_policy_trials.jsonl": "bf31302e53a4b3b054863d4d849a712f985775d1cef21754777b8a482589aca4",
+    "outputs/h_ee_002_hybrid_gain_sweep/gain_0_875_policy_trials.jsonl": "4a160d8df997816805df9090dc89eb90927eb21d561f20f8800b365763c4044d",
+    "outputs/h_ee_002_hybrid_gain_sweep/gain_0_750_policy_trials.jsonl": "9ee88278aa450f13e090820320c79ec5ea7d213d6acc83523f21f0e6d40880d6",
+    "outputs/h_ee_002_hybrid_gain_sweep/gain_1_000_summary.json": "714010a397c62ed896fd938a389e021cc4ca7a781c3259f7752e0871217117ea",
+    "outputs/h_ee_002_hybrid_gain_sweep/gain_0_875_summary.json": "9da667b7963010b7837a0531cad4ba69c33cf6eb21fbb227f31ae9897760349d",
+    "outputs/h_ee_002_hybrid_gain_sweep/gain_0_750_summary.json": "fca8aca5f819d59d5ddfe4510070bce9597a5c75f0aa037a36bbdf82efb00cc4",
+    "outputs/h_ee_002_hybrid_gain_sweep/h_ee_002_paired_comparison.json": "a76e2f785bc11d58398e917ff628fec1de29add1b45bf0b2a009679f8fdb0645",
+    "outputs/h_ee_002_hybrid_gain_sweep/h_ee_002_gain_sweep_summary.json": "f9b22575611ddad87c7da9ada1a8485490ffb6c2e0b0b509ea134a196c713f40"
+  },
+  "post_experiment_analysis_schema_correction": {
+    "date": "2026-07-14",
+    "kind": "cohort_field_rename_only",
+    "old_field": "constraint_exposure.missing_lift_gain_1_bucket",
+    "new_field": "constraint_exposure.current_gain_missing_lift",
+    "reason": "Per-gain summarize_rows computed the block from that gain's own missing-lift rows; the old name incorrectly implied the fixed gain-1.0 cohort.",
+    "unchanged": {
+      "rollout_rows": true,
+      "primary_metrics": true,
+      "paired_baseline_missing_lift_trials": 30,
+      "classification": "rejected",
+      "selected_gain": null,
+      "final_accessed": false
+    },
+    "immutable_artifacts_not_rewritten": [
+      "h_ee_002_registration.json",
+      "h_ee_002_frozen_inputs_manifest.json",
+      "gain_1_000_policy_trials.jsonl",
+      "gain_0_875_policy_trials.jsonl",
+      "gain_0_750_policy_trials.jsonl"
+    ],
+    "note": "Registration may still embed the historical field name inside baseline_metrics; that file is frozen provenance, not re-derived analysis."
+  },
+  "training_performed": false,
+  "final_accessed": false,
+  "phase_6b_started": false
+}

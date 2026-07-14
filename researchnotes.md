@@ -135,7 +135,7 @@ causally ruled out. See the ladder in `AGENTS.md`.
 | ID | Status | Claim | Why we think it | Test | Result |
 |----|--------|-------|-----------------|------|--------|
 | H-EE-001 | untested | **Open-loop phase clock drift:** rollout advances `cursor` each step and maps it to demo phase lengths; when motion lags demos, the policy may index into `close_gripper` at the wrong physical state. | `state_bc.py` derives MLP phase from `_phase_at_cursor`, not live contact. Constraint exposure is substantial, but the registered results do not establish a causal link to event failure. | Train/evaluate an env-derived phase contract on protocol-v2 validation before any new final access. | |
-| H-EE-002 | partial | **EE saturation lag:** controller constraints interact with the learned EE trajectory and event sequence. | Raw final EE has 21.3% joint-limit exposure and 33.5% clipped-joint exposure; labels use feasible deltas from telemetry. | Frozen-hybrid inference-only gain test under protocol-v2 validation. Execution prompt: `prompts/h-ee-002-hybrid-gain-sweep.md`. | **Simple monotonic causality is not supported.** In registered raw final EE rollouts, saturation is weakly inversely associated with event failure (`r=-0.118`) and rollout failure (`r=-0.166`). Constraint exposure remains real, but may be consequence, exposure time, or an interaction. Evidence: `outputs/phase5_v2_final_selected_legacy/eval/policy_failure_analysis.json`. |
+| H-EE-002 | rejected | **EE saturation lag:** controller constraints interact with the learned EE trajectory and event sequence. | Raw final EE has 21.3% joint-limit exposure and 33.5% clipped-joint exposure; labels use feasible deltas from telemetry. | Frozen-hybrid inference-only gain test under protocol-v2 validation. Execution prompt: `prompts/h-ee-002-hybrid-gain-sweep.md`. | **Rejected on validation.** The exact gain-1.0 control reproduced 62/120, EO 79, phys 68, missing-lift 30, seeds 20/14/9/9/10. Gain 0.875 collapsed to **5/120**, EO 9, phys 26, missing-lift 86, early-close 25, seeds 5/0/0/0/0. Gain 0.750 reached **0/120**, EO 0, phys 37, missing-lift 72, early-close 48. Lower gains reduced failure-conditioned constraint exposure, including the original 30 missing-lift trials, but recovered **zero** paired successes and lost 57/62 prior successes. Constraint exposure is not the root cause under this monotonic gain intervention; do not lower gain further or add an unregistered cap rescue. Final not accessed. Evidence: `outputs/h_ee_002_hybrid_gain_sweep/`, `evidence/h_ee_002_hybrid_gain_sweep.json`. |
 | H-EE-003 | rejected | **Gripper coupled in one MLP head:** a single 6-D output mixes Cartesian and gripper; arm error states map to multiple gripper label modes in training, so the network closes/opens at wrong states. | The protocol-v2 training labels are exactly binary for both spaces (open `1`: 15,712 / 48,112; close `0`: 32,400 / 48,112; no intermediate values). H-EE-008 improved weighted MSE but EE seeds remained unstable. | Same H-EE-008 legacy temporal/data/128×128/5-seed validation contract, but split only the output: 5-D arm MSE head plus sigmoid binary gripper head (weighted BCE 5× / close 10×), raw rollout only. | **Rejected on validation.** EE success fell 50→34/120 and event order 55→50/120; early-close rose 5→29. EE per-seed successes were 9,1,7,6,11: lower variance only because all seeds were poor, not improved reliability. Joint also collapsed 84→41/120, event order 90→48, and physical sanity 100→73. No controller failures; final was not accessed. Evidence: `outputs/h_ee_003_separate_gripper_head_validation/h_ee_003_comparison.json`. |
 | H-EE-004 | partial | **Early-close geometry threshold:** gate requires close command within 15 mm; some policies trigger close from the wrong state. | Raw final has 2 EE and 11 joint early-close trials. The guard removes both counts without materially improving success. | Analyze close-start distance jointly with pre-close contact and reopen behavior; do not relax the release gate. | Early-close alone is not the main blocker: guarded EE remains 28/120 and guarded joint reaches only 55/120. |
 | H-EE-005 | partial | **Gripper oscillation → reopen:** policy outputs open commands after partial close when phase clock or state mismatch; `_episode_reopen_events` increments. | Failure clips (`ee_bc_failure.mp4`, trial 4005 seed 1) show reopen before valid sequence. | Plot gripper command vs `gripper_open` state on failure rollouts; count sign changes near close phase. | **Confirmed as the dominant residual under pure-MLP H-EE-021** (EO fails mostly reopen; fail flips ~5). **H-EE-014 hybrid eliminated reopens** (155→0 EE; flips=1.0 on success and fail). Residual under hybrid is missing_lift + early_close, not oscillation. |
@@ -194,7 +194,7 @@ Also: EE success **high_staged 39/60** vs **vertical 23/60** — approach bias, 
 | **SP2** | Arm-only MLP under NN gripper | **H-EE-023** (A2) | **rejected** | missing_lift bucket ↓ or EE +10; worst seed ↑; reopen ~0 | early-close (unless side effect), impulse style |
 | **SP2b** | FSM gripper diagnostic | **H-EE-015** | untested fallback (early_close still 11) | Arm upper bound if SP1 fails | Learned gripper comparison purity |
 | **SP3** | Impulse almost-wins | **H-EE-024** | **diagnosed** (no train) | Mechanism confirmed; only then path/demo change | Timing metrics as substitute |
-| **SP4** | Parallel cheap probes | **H-EE-007** labels; optional H-EE-002 under hybrid | H-EE-007 rejected; H-EE-002 untested | Label/gain causality yes/no | Raw observed EE transitions failed executability; H-EE-002 remains separate |
+| **SP4** | Parallel cheap probes | **H-EE-007** labels; H-EE-002 frozen gain | **complete; both rejected** | Label/gain causality yes/no | Raw labels failed replay; lower EE gains reduced exposure but collapsed success/lift |
 | **SP5** | Selection / final | only if bars + worst-seed/phys approach frontier | blocked | Human-approved single final access | Auto-open because validation improved |
 | **SP6** | Joint pick-place track | joint hybrid is strong (97/120) | optional | Task expansion without claiming EE fixed | EE parity |
 | **SP7** | Phase 6b vision | **H-VIS-001** | blocked | New temporal/gripper contract required | Fixing residual thrash by RGB alone |
@@ -209,6 +209,7 @@ Also: EE success **high_staged 39/60** vs **vertical 23/60** — approach bias, 
 | Phase 6b vision BC now | Hides arm/force residual behind RGB |
 | Distance-guard shield (H-EE-011 style) | Rejected; early-close is small pocket |
 | Relax impulse/phys gates | 15 almost-wins are real physics-audit signal |
+| Lower EE gain again or add a cap rescue under H-EE-002 | Registered 0.875/0.750 collapsed success; a cap is a new hypothesis, not a rescue |
 | Combine SP1+SP2 in one first train | Confounds match-set vs arm-only causal claims |
 | Redefine EE vs joint learned comparison via FSM without labeling diagnostic | H-EE-015 purity risk |
 
@@ -229,7 +230,7 @@ under the frozen hybrid contract. Full sub-phase program above.
 | 1 | H-EE-024 / SP3 | Impulse almost-win mechanism | Maybe later | Low then medium | **diagnosed; no train** |
 | 2 | H-EE-007 / SP4 | raw `labels` vs `policy_labels` probe | No | **rejected at replay** | Raw transitions are not command-scale executable labels |
 | 2 | H-EE-015 / SP2b | FSM gripper + learned arm (diagnostic) | Partial | Medium | early-close upper bound (still open after SP1 reject) |
-| 2 | H-EE-002 | EE gain/cap under **hybrid** (causal) | Yes | Medium | thrash / saturation interaction |
+| 2 | H-EE-002 | EE gain under **hybrid** (causal) | No | **rejected** | 0.875/0.750 collapsed success despite lower exposure; no cap rescue |
 | 3 | H-EE-017 | History / tiny GRU (arm or approach only) | Yes | Medium–high | non-Markov after SP1/SP2 reject |
 | 3 | SP6 | Joint-only pick-place BC track | Yes | Medium | task expansion (joint hybrid 97 still best) |
 | 4 | H-VIS-001 / SP7 | Vision BC with new gripper/temporal contract | Yes | High | blocked until EE comparison viable |
@@ -294,18 +295,17 @@ under an explicitly named frontier bar.
 
 ## Hypothesis priority (suggested order)
 
-**Post residual program (SP0–SP3 done 2026-07-09):** best EE remains hybrid A1 62/120.
-H-EE-022/023 rejected; H-EE-024 diagnosed no-train. Next survivors:
+**Post residual program plus SP4 complete:** best EE remains hybrid A1 62/120.
+H-EE-002/007/022/023 rejected; H-EE-024 diagnosed no-train. Next survivors:
 
-1. **SP4 / H-EE-002** — frozen-hybrid gain causality; prompt: `prompts/h-ee-002-hybrid-gain-sweep.md`.
-2. **SP2b / H-EE-015** — oracle FSM arm upper bound; prompt: `prompts/h-ee-015-fsm-arm-upper-bound.md`.
-3. **H-EE-017** — history / tiny GRU only if H-EE-002 and H-EE-015 leave a non-Markov residual.
-4. **SP3 train path** — only if softer close/approach design is registered (not gate relaxation).
-5. **SP6** joint pick-place track optional (joint hybrid 97/120 still best).
-6. **SP5 final** — still closed; EE 62/worst 9/phys 68 short of legacy_84.
-7. **SP7** Phase 6b blocked; Phase 7 language/VLA is not the next step.
-8. **Crossed off:** H-EE-007 raw labels, H-EE-022 match-set, H-EE-023 A2 arm-only, H-EE-016/018/019, pure gripper MSE, distance guards.
-9. **Keep frozen:** hybrid A1 + `global_gripper` + historical match + H-EE-008/021 foundations.
+1. **SP2b / H-EE-015** — oracle FSM arm upper bound; prompt: `prompts/h-ee-015-fsm-arm-upper-bound.md`.
+2. **H-EE-017** — history / tiny GRU only if H-EE-015 leaves a non-Markov residual.
+3. **SP3 train path** — only if softer close/approach design is registered (not gate relaxation).
+4. **SP6** joint pick-place track optional (joint hybrid 97/120 still best).
+5. **SP5 final** — still closed; EE 62/worst 9/phys 68 short of legacy_84.
+6. **SP7** Phase 6b blocked; Phase 7 language/VLA is not the next step.
+7. **Crossed off:** H-EE-002 lower gain, H-EE-007 raw labels, H-EE-022 match-set, H-EE-023 A2 arm-only, H-EE-016/018/019, pure gripper MSE, distance guards.
+8. **Keep frozen:** hybrid A1 + `global_gripper` + historical match + H-EE-008/021 foundations.
 
 ---
 
@@ -336,6 +336,7 @@ H-EE-022/023 rejected; H-EE-024 diagnosed no-train. Next survivors:
 | 2026-07-09 | H-EE-023 | A2 arm-only MLP under frozen NN gripper + historical match + `global_gripper` name, full 5-seed train | **Rejected** — EE 67/120 (+5, not ≥72); missing_lift_eo 32 (worse); worst 6; reopen 0; joint 89. Keep A1 baseline | `outputs/h_ee_023_arm_only_mlp_validation/h_ee_023_comparison.json` |
 | 2026-07-09 | H-EE-024 | Impulse almost-win telemetry + visual diagnosis | **Diagnosed; no train** — 13/15 impulse over thr; mean 11.44 vs success 6.55; path/force residual | `outputs/h_ee_024_impulse_diagnosis/h_ee_024_impulse_diagnosis.json` |
 | 2026-07-13 | H-EE-007 | Raw observed EE labels vs reconstructed executable EE labels; 48,112-sample audit then 18-demo replay gate | **Rejected at replay; no train** — control 18/18, raw 0/18 success and 0/18 event-order. Raw arm labels were ~30× smaller on mean L2; gripper labels were identical. Final not accessed | `outputs/h_ee_007_label_contract_probe/h_ee_007_comparison.json`, `reports/2026-07-13-h-ee-007-label-contract.md` |
+| 2026-07-13 | H-EE-002 | Frozen H-EE-014 hybrid A1, inference-only EE arm gain sweep (1.0/0.875/0.750), protocol-v2 validation, 5 seeds × 24 | **Rejected** — 1.0 reproduced 62/120 exactly; 0.875 fell to 5/120 and 0.750 to 0/120. Lower failure-conditioned constraint exposure did not recover a single prior missing-lift trial; it lost 57/62 baseline successes and increased missing-lift/early-close. No training, cap rescue, final, or Phase 6b access | `outputs/h_ee_002_hybrid_gain_sweep/h_ee_002_gain_sweep_summary.json`, `evidence/h_ee_002_hybrid_gain_sweep.json`, `reports/2026-07-13-h-ee-002-hybrid-gain.md` |
 
 *(Add a row when you run a hypothesis test — do not infer from loss curves alone.)*
 
