@@ -15,6 +15,7 @@ ALLOWED_ENTRYPOINTS = {
     "scripts/run_loss_decomposition.py",
     "scripts/run_h_ee_014_diagnosis.py",
     "scripts/run_h_ee_022_match_reeval.py",
+    "scripts/run_state_bc_efficiency_curve.py",
 }
 
 
@@ -53,6 +54,29 @@ def load_experiment_config(path: Path) -> ExperimentConfig:
         raise ValueError("non-runnable experiment configs require non_runnable_reason")
     if arguments.get("eval-split") == "final" and not payload.get("allow_final_access", False):
         raise ValueError("final split configs require explicit allow_final_access=true")
+    mode = arguments.get("mode")
+    if mode == "locked-evaluation" and not payload.get("allow_locked_evaluation", False):
+        raise ValueError(
+            "locked-evaluation experiment configs require explicit "
+            "allow_locked_evaluation=true"
+        )
+    if arguments.get("allow-locked-evaluation") and not payload.get(
+        "allow_locked_evaluation", False
+    ):
+        raise ValueError(
+            "arguments.allow-locked-evaluation requires top-level "
+            "allow_locked_evaluation=true"
+        )
+    if (
+        entrypoint == "scripts/run_state_bc_efficiency_curve.py"
+        and mode is None
+        and payload.get("runnable", True)
+    ):
+        # Dry-run-first: runnable efficiency configs must declare a mode.
+        raise ValueError(
+            "efficiency-curve experiment configs must set arguments.mode "
+            "(default recommended: dry-run)"
+        )
     return ExperimentConfig(
         path=path.resolve(),
         sha256=hashlib.sha256(raw).hexdigest(),

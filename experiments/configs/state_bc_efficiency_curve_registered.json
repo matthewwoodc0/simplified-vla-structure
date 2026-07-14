@@ -1,0 +1,24 @@
+{
+  "format": "svla_experiment_config_v1",
+  "name": "state_bc_efficiency_curve_registered",
+  "hypothesis": "EFF-001",
+  "status": "registered_not_run",
+  "entrypoint": "scripts/run_state_bc_efficiency_curve.py",
+  "runnable": true,
+  "allow_locked_evaluation": false,
+  "allow_final_access": false,
+  "arguments": {
+    "protocol": "configs/state_bc_efficiency_protocol_v1.json",
+    "mode": "dry-run",
+    "output-dir": "outputs/state_bc_efficiency_curve"
+  },
+  "evidence": [
+    "evidence/state_bc_efficiency_curve_registration.json",
+    "configs/state_bc_efficiency_protocol_v1.json"
+  ],
+  "notes": [
+    "Dry-run-first registration. Does not execute the 150-fit primary curve.",
+    "locked_evaluation requires a separate reviewed config with allow_locked_evaluation=true and --allow-locked-evaluation.",
+    "Primary execution command is recorded in evidence/state_bc_efficiency_curve_registration.json after independent review."
+  ]
+}

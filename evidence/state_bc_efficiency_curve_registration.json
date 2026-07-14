@@ -1,0 +1,569 @@
+{
+  "format": "svla_state_bc_efficiency_curve_registration_v1",
+  "version": 1,
+  "date": "2026-07-14",
+  "status": "registered_not_run",
+  "completion_label_target": "READY_FOR_EFFICIENCY_REVIEW",
+  "study_id": "EFF-001",
+  "name": "state_bc_demonstration_efficiency_curve",
+  "description": "Preregistered nested stratified demonstration-efficiency curve under the Phase-5 frozen hybrid A1 fair contract. Infrastructure and registration only; primary curve and locked evaluation are NOT executed by this registration.",
+  "source_synthesis": {
+    "path": "evidence/phase5_causal_synthesis.json",
+    "sha256": "491a91b9397e7788f7953b5237996ad1113e348b813d4883dc8845972e70c4a8",
+    "contract_key": "frozen_next_program_contract"
+  },
+  "protocol": {
+    "path": "configs/state_bc_efficiency_protocol_v1.json",
+    "sha256": "9efbd6c7ded93d0de282ed623e0354e1a74c119da15a29e55326a5fc9aeeee36",
+    "format": "svla_state_bc_efficiency_protocol_v1",
+    "version": 1
+  },
+  "frozen_recipe": {
+    "action_spaces": [
+      "joint_delta",
+      "ee_tool_delta"
+    ],
+    "policy_family": "hybrid_nn_gripper_mlp",
+    "compositor": "A1",
+    "loss": "global_gripper",
+    "nn_match": "historical",
+    "temporal_features": "legacy_progress_phase",
+    "label_source": "policy_labels",
+    "hidden_sizes": [
+      128,
+      128
+    ],
+    "epochs": 300,
+    "batch": 1024,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-05,
+    "action_gain": 1.0,
+    "model_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "stride": 1,
+    "max_steps": 3200,
+    "strict_event_order_gates_unchanged": true,
+    "strict_physical_sanity_gates_unchanged": true,
+    "final_access_authorized": false,
+    "phase6b_authorized": false
+  },
+  "recipe_hash": "9a7e2da939253479c799230399a8ef723bae50188b40fbb32f70c7d0636ca16e",
+  "data_budgets": [
+    6,
+    12,
+    18,
+    24,
+    30
+  ],
+  "ladder_count": 3,
+  "ladders": [
+    {
+      "ladder_id": "L0",
+      "construction_seed": 101,
+      "pose_addition_order": [
+        "eff_train_left",
+        "eff_train_mid_right",
+        "eff_train_center",
+        "eff_train_mid_left",
+        "eff_train_right"
+      ],
+      "sha256": "686cf5c7377ec7fd998742d6f301dad13ac8a35ecbf461848b9556aeb958c7b8",
+      "budgets": {
+        "6": [
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021
+        ],
+        "12": [
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027
+        ],
+        "18": [
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025
+        ],
+        "24": [
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023
+        ],
+        "30": [
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029
+        ]
+      }
+    },
+    {
+      "ladder_id": "L1",
+      "construction_seed": 202,
+      "pose_addition_order": [
+        "eff_train_center",
+        "eff_train_left",
+        "eff_train_mid_left",
+        "eff_train_right",
+        "eff_train_mid_right"
+      ],
+      "sha256": "efd67ee9f73a7edb03702238ab34f637a7bfc328547ee7b9c4746fbf03228bd7",
+      "budgets": {
+        "6": [
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025
+        ],
+        "12": [
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021
+        ],
+        "18": [
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023
+        ],
+        "24": [
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029
+        ],
+        "30": [
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029,
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027
+        ]
+      }
+    },
+    {
+      "ladder_id": "L2",
+      "construction_seed": 303,
+      "pose_addition_order": [
+        "eff_train_mid_right",
+        "eff_train_right",
+        "eff_train_center",
+        "eff_train_mid_left",
+        "eff_train_left"
+      ],
+      "sha256": "f8b3eaf240ec14b38e8f01dd857a37e936869bb0c2b34670c72f48ed7a11012d",
+      "budgets": {
+        "6": [
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027
+        ],
+        "12": [
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029
+        ],
+        "18": [
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029,
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025
+        ],
+        "24": [
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029,
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023
+        ],
+        "30": [
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029,
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023,
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021
+        ]
+      }
+    }
+  ],
+  "model_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "action_spaces": [
+    "joint_delta",
+    "ee_tool_delta"
+  ],
+  "strata": {
+    "definition": "orientation x approach",
+    "count": 6,
+    "orientations": [
+      {
+        "label": "yaw_-18",
+        "yaw_degrees": -18.0
+      },
+      {
+        "label": "yaw_0",
+        "yaw_degrees": 0.0
+      },
+      {
+        "label": "yaw_18",
+        "yaw_degrees": 18.0
+      }
+    ],
+    "approaches": [
+      {
+        "label": "vertical_pregrasp",
+        "axis_mode": "world_z"
+      },
+      {
+        "label": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z"
+      }
+    ],
+    "labels": [
+      "yaw_-18|high_staged_vertical_pregrasp",
+      "yaw_-18|vertical_pregrasp",
+      "yaw_0|high_staged_vertical_pregrasp",
+      "yaw_0|vertical_pregrasp",
+      "yaw_18|high_staged_vertical_pregrasp",
+      "yaw_18|vertical_pregrasp"
+    ]
+  },
+  "evaluation_splits": {
+    "development": {
+      "sha256": "634b83d45409e22b5d1a9a3e936ffce150210620f510bd85b79cade59ae2af53",
+      "start_trial_id": 9001,
+      "trial_count": 24,
+      "object_pose_labels": [
+        "eff_dev_left_outer",
+        "eff_dev_left_inner",
+        "eff_dev_right_inner",
+        "eff_dev_right_outer"
+      ]
+    },
+    "locked_evaluation": {
+      "sha256": "1466b6ab20a5ce9eea09969e5e558795353887a373efc4c594e34efd7a5985a7",
+      "start_trial_id": 10001,
+      "trial_count": 24,
+      "object_pose_labels": [
+        "eff_locked_left_outer",
+        "eff_locked_left_inner",
+        "eff_locked_right_inner",
+        "eff_locked_right_outer"
+      ]
+    }
+  },
+  "endpoints": {
+    "primary": {
+      "name": "normalized_auc_success_vs_demo_count",
+      "description": "Normalized area under success rate versus distinct-demo-count curve, per action space.",
+      "paired_contrast": "joint_minus_ee_auc_difference on identical (ladder, model_seed, evaluation specs)"
+    },
+    "secondary": [
+      "success_difference_at_each_budget",
+      "event_order_valid_rate",
+      "physical_sanity_pass_rate",
+      "worst_model_seed_success",
+      "hard_limit_infeasible_exposure",
+      "early_close",
+      "reopen",
+      "supervised_timestep_count",
+      "training_wall_time",
+      "rollout_wall_time",
+      "model_bytes",
+      "peak_process_memory_if_available"
+    ]
+  },
+  "uncertainty": {
+    "method": "paired_bootstrap_over_preregistered_units",
+    "paired_unit": "(ladder_id, model_seed)",
+    "paired_unit_count": 15,
+    "notes": [
+      "Model seeds and subset ladders are distinct variance factors.",
+      "Five model seeds alone do not measure demonstration-selection variance.",
+      "Never extrapolate a demo threshold beyond observed budgets.",
+      "If a target performance level is not crossed, report not_reached."
+    ],
+    "bootstrap_replicates": 10000,
+    "confidence_level": 0.95
+  },
+  "planned_cell_count": 150,
+  "matrix_formula": "5 budgets x 3 ladders x 5 seeds x 2 action spaces",
+  "dry_run_matrix": {
+    "ignored_full_path": "outputs/state_bc_efficiency_curve/efficiency_matrix_dry_run.json",
+    "ignored_full_sha256": "9015aa1e9c708c1bc2f4856f4bf2a77f3f60a956049b5cd5d31b2d826a9fbfea",
+    "tracked_compact_path": "evidence/state_bc_efficiency_curve_matrix_dry_run.json",
+    "tracked_compact_sha256": "c9c7263236a4e2e7fe35dab6c5275eb20333de3d5ce29e3b97fe8924173c63c1",
+    "cell_count": 150,
+    "unique_cell_ids": 150
+  },
+  "primary_curve_executed": false,
+  "locked_evaluation_accessed": false,
+  "protocol_v2_final_accessed": false,
+  "non_efficacy_smoke": {
+    "executed": true,
+    "path": "outputs/state_bc_efficiency_curve_smoke/efficiency_smoke_summary.json",
+    "sha256": "d14f20c59233550dc040d788ccab3863292a2e8d92c9df9ba4123bd797a5b93a",
+    "scope": {
+      "budgets": [
+        6
+      ],
+      "ladders": [
+        "L0"
+      ],
+      "seeds": [
+        0
+      ],
+      "action_spaces": [
+        "joint_delta",
+        "ee_tool_delta"
+      ],
+      "epochs": 2,
+      "eval_limit": 1,
+      "eval_split": "development",
+      "non_efficacy_smoke": true
+    },
+    "note": "Plumbing-only. Outcomes must not be used for selection, tuning, or scientific claims."
+  },
+  "experiment_config": {
+    "path": "experiments/configs/state_bc_efficiency_curve_registered.json",
+    "sha256": "f0475b4c70b6f98f3ad01eecbb85b8997ebde158032421149dcf680f97ed2b03",
+    "default_mode": "dry-run",
+    "allow_locked_evaluation": false
+  },
+  "future_commands_after_review": {
+    "primary_curve_development_split": "PYTHONPATH=src .venv/bin/python scripts/run_state_bc_efficiency_curve.py --mode primary-curve --protocol configs/state_bc_efficiency_protocol_v1.json --output-dir outputs/state_bc_efficiency_curve_primary",
+    "locked_evaluation_requires_separate_authorization": "PYTHONPATH=src .venv/bin/python scripts/run_state_bc_efficiency_curve.py --mode locked-evaluation --allow-locked-evaluation --protocol configs/state_bc_efficiency_protocol_v1.json --output-dir outputs/state_bc_efficiency_curve_locked",
+    "analysis_note": "After primary curve cells complete, aggregate with analysis/efficiency_curve.py (read-only)."
+  },
+  "forbidden_until_review": [
+    "150-fit primary curve",
+    "300-epoch matrix cells as scientific result",
+    "locked_evaluation",
+    "protocol-v2 final",
+    "selection or tuning from smoke outcomes"
+  ]
+}

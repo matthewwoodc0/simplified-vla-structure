@@ -242,7 +242,7 @@ Also: EE success **high_staged 39/60** vs **vertical 23/60** — approach bias, 
 
 Ordered program under the frozen fair contract above:
 
-1. **Demonstration efficiency** — preregistered nested/stratified demo-count curve, both spaces, common seeds.
+1. **Demonstration efficiency** — preregistered nested/stratified demo-count curve, both spaces, common seeds. **Status: `registered_not_run` (EFF-001).**
 2. **Learned pick-place BC** — both action spaces; scripted/replay plumbing already exists.
 3. **Controller-integration replication** — Controller A (stateless
    current-measured-pose-plus-delta DLS; current learned EE rollout) vs Controller B
@@ -257,13 +257,49 @@ Do **not** treat residual rescue knobs as the default queue. Synthesis:
 
 ---
 
+## EFF-001 — Demonstration-efficiency curve (registered, not run)
+
+| Field | Value |
+|-------|--------|
+| **ID** | EFF-001 |
+| **Status** | `registered_not_run` |
+| **Claim** | Under the frozen hybrid A1 fair contract, joint-delta and ee_tool_delta differ in sample efficiency as measured by normalized AUC of success rate versus distinct demo count (budgets 6/12/18/24/30), with paired bootstrap uncertainty over (ladder, model seed) units. |
+| **Why** | Phase-5 synthesis closed rescue tuning and ordered demonstration efficiency as the first comparative program step. |
+| **Design freeze** | `configs/state_bc_efficiency_protocol_v1.json` + `evidence/state_bc_efficiency_curve_registration.json` |
+| **Recipe** | hybrid A1 + `global_gripper` + historical match + `legacy_progress_phase` + `policy_labels` + gain 1.0; MLP 128×128; 300 epochs; batch 1024; lr 1e-3; wd 1e-5; seeds 0–4 |
+| **Ladders** | Exactly 3 immutable nested ladders (L0/L1/L2); balanced 6 strata; no post-hoc ladder selection |
+| **Eval** | New efficiency protocol splits `development` and `locked_evaluation` (not v2 validation/final aliases). Locked requires `--allow-locked-evaluation`. |
+| **Primary endpoint** | Normalized AUC success vs demo count; paired joint−EE AUC difference |
+| **Uncertainty** | Paired bootstrap over preregistered units `(ladder_id, model_seed)`; seeds ≠ subset-selection variance |
+| **Cell count** | 150 planned (5×3×5×2) |
+| **Executed so far** | Dry-run matrix + plumbing smoke only (`non_efficacy_smoke=true`). **No primary curve. No locked evaluation.** |
+| **Test** | After independent review: `--mode primary-curve` on development split; locked only with separate authorization |
+| **Result** | *Not run — stop for review.* |
+
+Registration command (dry-run default):
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_state_bc_efficiency_curve.py --mode dry-run \
+  --output-dir outputs/state_bc_efficiency_curve
+```
+
+Future primary command (after review only):
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_state_bc_efficiency_curve.py --mode primary-curve \
+  --protocol configs/state_bc_efficiency_protocol_v1.json \
+  --output-dir outputs/state_bc_efficiency_curve_primary
+```
+
+---
+
 ## Improvement ideas backlog (tiered, post-synthesis)
 
 ### Mainline next program (do these)
 
 | Rank | ID | Idea | Retrain? | Notes |
 |-----:|----|------|----------|-------|
-| 1 | efficiency | Nested stratified demo-count curve | Yes | Fair contract frozen; preregister counts and seeds |
+| 1 | EFF-001 | Nested stratified demo-count curve | Yes | **`registered_not_run`** — protocol/runner/tests ready; primary curve blocked pending review |
 | 2 | pick-place BC | Learned pick-place, both spaces | Yes | Comparative replication, not joint-only residual detour |
 | 3 | controller-2 | Controller-integration replication (A: stateless measured-pose+delta DLS; B: persistent-target-lag DLS, same solver) | Yes | Same task/obs/trials/gates; controller-specific demos; joint/EE parity within controller; not byte-identical demos across controllers |
 
@@ -388,6 +424,7 @@ rejected; H-EE-024 diagnosed optional backlog only.
 | 2026-07-13 | H-EE-002 | Frozen H-EE-014 hybrid A1, inference-only EE arm gain sweep (1.0/0.875/0.750), protocol-v2 validation, 5 seeds × 24 | **Rejected** — 1.0 reproduced 62/120 exactly; 0.875 fell to 5/120 and 0.750 to 0/120. Lower failure-conditioned constraint exposure did not recover a single prior missing-lift trial; it lost 57/62 baseline successes and increased missing-lift/early-close. No training, cap rescue, final, or Phase 6b access | `outputs/h_ee_002_hybrid_gain_sweep/h_ee_002_gain_sweep_summary.json`, `evidence/h_ee_002_hybrid_gain_sweep.json`, `reports/2026-07-13-h-ee-002-hybrid-gain.md` |
 | 2026-07-14 | H-EE-015 | Frozen hybrid A1 EE arm + fixed oracle gripper FSM (privileged grasp-target thresholds), protocol-v2 validation, 5 seeds × 24, no train | **`negative_arm_ceiling`** — success 62→**47**/120, EO 79→77, phys 68→**56**, worst 9→**5**, missing_lift 30→**42**, early_close 11→0 and reopen 0 by construction, never-transitioned 0, impulse almost-wins 15→24, paired +5/−20 net −15. Not learned-policy performance; final closed | `outputs/h_ee_015_fsm_upper_bound/h_ee_015_summary.json`, `h_ee_015_paired_comparison.json`, `h_ee_015_experiment_manifest.json`, `reports/2026-07-14-h-ee-015-fsm-upper-bound.md` |
 | 2026-07-14 | Phase 5 synthesis | Documentation-only causal freeze of pickup rescue chapter; no train/re-eval/final/Phase 6b | **`SYNTHESIS_FROZEN`** — rescue_program_status closed; fair contract = hybrid A1 + global_gripper + historical match + policy_labels + gain 1.0; next program = efficiency → pick-place → controller-integration replication; H-EE-024/017 optional backlog only | `evidence/phase5_causal_synthesis.json`, `reports/2026-07-14-phase5-causal-synthesis.md` |
+| 2026-07-14 | EFF-001 | Efficiency-curve infrastructure + preregistration (nested ladders, 150-cell matrix, development/locked splits, dry-run + plumbing smoke only) | **`registered_not_run`** — READY_FOR_EFFICIENCY_REVIEW; primary curve and locked evaluation **not** executed | `evidence/state_bc_efficiency_curve_registration.json`, `configs/state_bc_efficiency_protocol_v1.json`, `reports/2026-07-14-efficiency-curve-preregistration.md` |
 
 *(Add a row when you run a hypothesis test — do not infer from loss curves alone.)*
 

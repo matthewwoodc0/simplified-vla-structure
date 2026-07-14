@@ -1,0 +1,6144 @@
+{
+  "format": "svla_state_bc_efficiency_protocol_v1",
+  "version": 1,
+  "name": "state_bc_efficiency_curve_v1",
+  "status": "registered_not_run",
+  "description": "Preregistered demonstration-efficiency curve under the Phase-5 frozen hybrid fair contract. Primary curve and locked_evaluation require independent review before execution.",
+  "source_synthesis": {
+    "path": "evidence/phase5_causal_synthesis.json",
+    "contract_key": "frozen_next_program_contract"
+  },
+  "domain": {
+    "object_size_scale": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "sliding_friction": 1.8,
+    "envelope": "nominal_readiness",
+    "note": "All demo-pool and evaluation positions remain inside the declared nominal/readiness envelope."
+  },
+  "frozen_recipe": {
+    "action_spaces": [
+      "joint_delta",
+      "ee_tool_delta"
+    ],
+    "policy_family": "hybrid_nn_gripper_mlp",
+    "compositor": "A1",
+    "loss": "global_gripper",
+    "nn_match": "historical",
+    "temporal_features": "legacy_progress_phase",
+    "label_source": "policy_labels",
+    "hidden_sizes": [
+      128,
+      128
+    ],
+    "epochs": 300,
+    "batch": 1024,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-05,
+    "action_gain": 1.0,
+    "model_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "stride": 1,
+    "max_steps": 3200,
+    "strict_event_order_gates_unchanged": true,
+    "strict_physical_sanity_gates_unchanged": true,
+    "final_access_authorized": false,
+    "phase6b_authorized": false
+  },
+  "data_budgets": [
+    6,
+    12,
+    18,
+    24,
+    30
+  ],
+  "strata": {
+    "definition": "orientation x approach",
+    "count": 6,
+    "orientations": [
+      {
+        "label": "yaw_-18",
+        "yaw_degrees": -18.0
+      },
+      {
+        "label": "yaw_0",
+        "yaw_degrees": 0.0
+      },
+      {
+        "label": "yaw_18",
+        "yaw_degrees": 18.0
+      }
+    ],
+    "approaches": [
+      {
+        "label": "vertical_pregrasp",
+        "axis_mode": "world_z"
+      },
+      {
+        "label": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z"
+      }
+    ],
+    "labels": [
+      "yaw_-18|high_staged_vertical_pregrasp",
+      "yaw_-18|vertical_pregrasp",
+      "yaw_0|high_staged_vertical_pregrasp",
+      "yaw_0|vertical_pregrasp",
+      "yaw_18|high_staged_vertical_pregrasp",
+      "yaw_18|vertical_pregrasp"
+    ]
+  },
+  "demo_pool": {
+    "description": "Distinct successful scripted pickup demos; repeats never count as new data.",
+    "start_trial_id": 8001,
+    "object_poses": [
+      {
+        "label": "eff_train_left",
+        "xyz": [
+          -0.018,
+          -0.232,
+          0.069
+        ]
+      },
+      {
+        "label": "eff_train_mid_left",
+        "xyz": [
+          -0.009,
+          -0.2335,
+          0.069
+        ]
+      },
+      {
+        "label": "eff_train_center",
+        "xyz": [
+          0.0,
+          -0.235,
+          0.069
+        ]
+      },
+      {
+        "label": "eff_train_mid_right",
+        "xyz": [
+          0.009,
+          -0.2365,
+          0.069
+        ]
+      },
+      {
+        "label": "eff_train_right",
+        "xyz": [
+          0.018,
+          -0.238,
+          0.069
+        ]
+      }
+    ],
+    "distinct_demo_count": 30,
+    "demos": [
+      {
+        "trial_id": 8001,
+        "orientation": "yaw_-18",
+        "yaw_degrees": -18.0,
+        "object_pose": "eff_train_left",
+        "object_xyz": [
+          -0.018,
+          -0.232,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_-18|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8002,
+        "orientation": "yaw_-18",
+        "yaw_degrees": -18.0,
+        "object_pose": "eff_train_left",
+        "object_xyz": [
+          -0.018,
+          -0.232,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8003,
+        "orientation": "yaw_-18",
+        "yaw_degrees": -18.0,
+        "object_pose": "eff_train_mid_left",
+        "object_xyz": [
+          -0.009,
+          -0.2335,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_-18|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8004,
+        "orientation": "yaw_-18",
+        "yaw_degrees": -18.0,
+        "object_pose": "eff_train_mid_left",
+        "object_xyz": [
+          -0.009,
+          -0.2335,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8005,
+        "orientation": "yaw_-18",
+        "yaw_degrees": -18.0,
+        "object_pose": "eff_train_center",
+        "object_xyz": [
+          0.0,
+          -0.235,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_-18|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8006,
+        "orientation": "yaw_-18",
+        "yaw_degrees": -18.0,
+        "object_pose": "eff_train_center",
+        "object_xyz": [
+          0.0,
+          -0.235,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8007,
+        "orientation": "yaw_-18",
+        "yaw_degrees": -18.0,
+        "object_pose": "eff_train_mid_right",
+        "object_xyz": [
+          0.009,
+          -0.2365,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_-18|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8008,
+        "orientation": "yaw_-18",
+        "yaw_degrees": -18.0,
+        "object_pose": "eff_train_mid_right",
+        "object_xyz": [
+          0.009,
+          -0.2365,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8009,
+        "orientation": "yaw_-18",
+        "yaw_degrees": -18.0,
+        "object_pose": "eff_train_right",
+        "object_xyz": [
+          0.018,
+          -0.238,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_-18|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8010,
+        "orientation": "yaw_-18",
+        "yaw_degrees": -18.0,
+        "object_pose": "eff_train_right",
+        "object_xyz": [
+          0.018,
+          -0.238,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8011,
+        "orientation": "yaw_0",
+        "yaw_degrees": 0.0,
+        "object_pose": "eff_train_left",
+        "object_xyz": [
+          -0.018,
+          -0.232,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_0|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8012,
+        "orientation": "yaw_0",
+        "yaw_degrees": 0.0,
+        "object_pose": "eff_train_left",
+        "object_xyz": [
+          -0.018,
+          -0.232,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_0|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8013,
+        "orientation": "yaw_0",
+        "yaw_degrees": 0.0,
+        "object_pose": "eff_train_mid_left",
+        "object_xyz": [
+          -0.009,
+          -0.2335,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_0|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8014,
+        "orientation": "yaw_0",
+        "yaw_degrees": 0.0,
+        "object_pose": "eff_train_mid_left",
+        "object_xyz": [
+          -0.009,
+          -0.2335,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_0|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8015,
+        "orientation": "yaw_0",
+        "yaw_degrees": 0.0,
+        "object_pose": "eff_train_center",
+        "object_xyz": [
+          0.0,
+          -0.235,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_0|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8016,
+        "orientation": "yaw_0",
+        "yaw_degrees": 0.0,
+        "object_pose": "eff_train_center",
+        "object_xyz": [
+          0.0,
+          -0.235,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_0|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8017,
+        "orientation": "yaw_0",
+        "yaw_degrees": 0.0,
+        "object_pose": "eff_train_mid_right",
+        "object_xyz": [
+          0.009,
+          -0.2365,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_0|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8018,
+        "orientation": "yaw_0",
+        "yaw_degrees": 0.0,
+        "object_pose": "eff_train_mid_right",
+        "object_xyz": [
+          0.009,
+          -0.2365,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_0|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8019,
+        "orientation": "yaw_0",
+        "yaw_degrees": 0.0,
+        "object_pose": "eff_train_right",
+        "object_xyz": [
+          0.018,
+          -0.238,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_0|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8020,
+        "orientation": "yaw_0",
+        "yaw_degrees": 0.0,
+        "object_pose": "eff_train_right",
+        "object_xyz": [
+          0.018,
+          -0.238,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_0|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8021,
+        "orientation": "yaw_18",
+        "yaw_degrees": 18.0,
+        "object_pose": "eff_train_left",
+        "object_xyz": [
+          -0.018,
+          -0.232,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_18|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8022,
+        "orientation": "yaw_18",
+        "yaw_degrees": 18.0,
+        "object_pose": "eff_train_left",
+        "object_xyz": [
+          -0.018,
+          -0.232,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_18|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8023,
+        "orientation": "yaw_18",
+        "yaw_degrees": 18.0,
+        "object_pose": "eff_train_mid_left",
+        "object_xyz": [
+          -0.009,
+          -0.2335,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_18|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8024,
+        "orientation": "yaw_18",
+        "yaw_degrees": 18.0,
+        "object_pose": "eff_train_mid_left",
+        "object_xyz": [
+          -0.009,
+          -0.2335,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_18|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8025,
+        "orientation": "yaw_18",
+        "yaw_degrees": 18.0,
+        "object_pose": "eff_train_center",
+        "object_xyz": [
+          0.0,
+          -0.235,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_18|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8026,
+        "orientation": "yaw_18",
+        "yaw_degrees": 18.0,
+        "object_pose": "eff_train_center",
+        "object_xyz": [
+          0.0,
+          -0.235,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_18|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8027,
+        "orientation": "yaw_18",
+        "yaw_degrees": 18.0,
+        "object_pose": "eff_train_mid_right",
+        "object_xyz": [
+          0.009,
+          -0.2365,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_18|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8028,
+        "orientation": "yaw_18",
+        "yaw_degrees": 18.0,
+        "object_pose": "eff_train_mid_right",
+        "object_xyz": [
+          0.009,
+          -0.2365,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_18|high_staged_vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8029,
+        "orientation": "yaw_18",
+        "yaw_degrees": 18.0,
+        "object_pose": "eff_train_right",
+        "object_xyz": [
+          0.018,
+          -0.238,
+          0.069
+        ],
+        "approach": "vertical_pregrasp",
+        "axis_mode": "world_z",
+        "stratum": "yaw_18|vertical_pregrasp",
+        "repeat": 0
+      },
+      {
+        "trial_id": 8030,
+        "orientation": "yaw_18",
+        "yaw_degrees": 18.0,
+        "object_pose": "eff_train_right",
+        "object_xyz": [
+          0.018,
+          -0.238,
+          0.069
+        ],
+        "approach": "high_staged_vertical_pregrasp",
+        "axis_mode": "high_world_z",
+        "stratum": "yaw_18|high_staged_vertical_pregrasp",
+        "repeat": 0
+      }
+    ],
+    "note": "Pose XYZ match protocol-v2 train positions for envelope continuity but use efficiency-study trial IDs (8001+) and labels. Not an alias of protocol-v2 train split identity."
+  },
+  "ladders": [
+    {
+      "ladder_id": "L0",
+      "construction_seed": 101,
+      "pose_addition_order": [
+        "eff_train_left",
+        "eff_train_mid_right",
+        "eff_train_center",
+        "eff_train_mid_left",
+        "eff_train_right"
+      ],
+      "budgets": {
+        "6": [
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021
+        ],
+        "12": [
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027
+        ],
+        "18": [
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025
+        ],
+        "24": [
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023
+        ],
+        "30": [
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029
+        ]
+      },
+      "budget_entries": {
+        "6": [
+          {
+            "order": 0,
+            "trial_id": 8002,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8001,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8012,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8011,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8022,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8021,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ],
+        "12": [
+          {
+            "order": 0,
+            "trial_id": 8002,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8001,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8012,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8011,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8022,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8021,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 6,
+            "trial_id": 8008,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 7,
+            "trial_id": 8007,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 8,
+            "trial_id": 8018,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 9,
+            "trial_id": 8017,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 10,
+            "trial_id": 8028,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 11,
+            "trial_id": 8027,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ],
+        "18": [
+          {
+            "order": 0,
+            "trial_id": 8002,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8001,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8012,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8011,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8022,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8021,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 6,
+            "trial_id": 8008,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 7,
+            "trial_id": 8007,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 8,
+            "trial_id": 8018,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 9,
+            "trial_id": 8017,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 10,
+            "trial_id": 8028,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 11,
+            "trial_id": 8027,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 12,
+            "trial_id": 8006,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 13,
+            "trial_id": 8005,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 14,
+            "trial_id": 8016,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 15,
+            "trial_id": 8015,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 16,
+            "trial_id": 8026,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 17,
+            "trial_id": 8025,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ],
+        "24": [
+          {
+            "order": 0,
+            "trial_id": 8002,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8001,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8012,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8011,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8022,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8021,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 6,
+            "trial_id": 8008,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 7,
+            "trial_id": 8007,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 8,
+            "trial_id": 8018,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 9,
+            "trial_id": 8017,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 10,
+            "trial_id": 8028,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 11,
+            "trial_id": 8027,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 12,
+            "trial_id": 8006,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 13,
+            "trial_id": 8005,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 14,
+            "trial_id": 8016,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 15,
+            "trial_id": 8015,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 16,
+            "trial_id": 8026,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 17,
+            "trial_id": 8025,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 18,
+            "trial_id": 8004,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 19,
+            "trial_id": 8003,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 20,
+            "trial_id": 8014,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 21,
+            "trial_id": 8013,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 22,
+            "trial_id": 8024,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 23,
+            "trial_id": 8023,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ],
+        "30": [
+          {
+            "order": 0,
+            "trial_id": 8002,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8001,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8012,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8011,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8022,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8021,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 6,
+            "trial_id": 8008,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 7,
+            "trial_id": 8007,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 8,
+            "trial_id": 8018,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 9,
+            "trial_id": 8017,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 10,
+            "trial_id": 8028,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 11,
+            "trial_id": 8027,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 12,
+            "trial_id": 8006,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 13,
+            "trial_id": 8005,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 14,
+            "trial_id": 8016,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 15,
+            "trial_id": 8015,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 16,
+            "trial_id": 8026,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 17,
+            "trial_id": 8025,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 18,
+            "trial_id": 8004,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 19,
+            "trial_id": 8003,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 20,
+            "trial_id": 8014,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 21,
+            "trial_id": 8013,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 22,
+            "trial_id": 8024,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 23,
+            "trial_id": 8023,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 24,
+            "trial_id": 8010,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 25,
+            "trial_id": 8009,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 26,
+            "trial_id": 8020,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 27,
+            "trial_id": 8019,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 28,
+            "trial_id": 8030,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 29,
+            "trial_id": 8029,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ]
+      },
+      "sha256": "686cf5c7377ec7fd998742d6f301dad13ac8a35ecbf461848b9556aeb958c7b8"
+    },
+    {
+      "ladder_id": "L1",
+      "construction_seed": 202,
+      "pose_addition_order": [
+        "eff_train_center",
+        "eff_train_left",
+        "eff_train_mid_left",
+        "eff_train_right",
+        "eff_train_mid_right"
+      ],
+      "budgets": {
+        "6": [
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025
+        ],
+        "12": [
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021
+        ],
+        "18": [
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023
+        ],
+        "24": [
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029
+        ],
+        "30": [
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029,
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027
+        ]
+      },
+      "budget_entries": {
+        "6": [
+          {
+            "order": 0,
+            "trial_id": 8006,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8005,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8016,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8015,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8026,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8025,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ],
+        "12": [
+          {
+            "order": 0,
+            "trial_id": 8006,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8005,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8016,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8015,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8026,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8025,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 6,
+            "trial_id": 8002,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 7,
+            "trial_id": 8001,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 8,
+            "trial_id": 8012,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 9,
+            "trial_id": 8011,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 10,
+            "trial_id": 8022,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 11,
+            "trial_id": 8021,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ],
+        "18": [
+          {
+            "order": 0,
+            "trial_id": 8006,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8005,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8016,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8015,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8026,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8025,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 6,
+            "trial_id": 8002,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 7,
+            "trial_id": 8001,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 8,
+            "trial_id": 8012,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 9,
+            "trial_id": 8011,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 10,
+            "trial_id": 8022,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 11,
+            "trial_id": 8021,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 12,
+            "trial_id": 8004,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 13,
+            "trial_id": 8003,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 14,
+            "trial_id": 8014,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 15,
+            "trial_id": 8013,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 16,
+            "trial_id": 8024,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 17,
+            "trial_id": 8023,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ],
+        "24": [
+          {
+            "order": 0,
+            "trial_id": 8006,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8005,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8016,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8015,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8026,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8025,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 6,
+            "trial_id": 8002,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 7,
+            "trial_id": 8001,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 8,
+            "trial_id": 8012,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 9,
+            "trial_id": 8011,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 10,
+            "trial_id": 8022,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 11,
+            "trial_id": 8021,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 12,
+            "trial_id": 8004,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 13,
+            "trial_id": 8003,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 14,
+            "trial_id": 8014,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 15,
+            "trial_id": 8013,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 16,
+            "trial_id": 8024,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 17,
+            "trial_id": 8023,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 18,
+            "trial_id": 8010,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 19,
+            "trial_id": 8009,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 20,
+            "trial_id": 8020,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 21,
+            "trial_id": 8019,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 22,
+            "trial_id": 8030,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 23,
+            "trial_id": 8029,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ],
+        "30": [
+          {
+            "order": 0,
+            "trial_id": 8006,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8005,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8016,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8015,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8026,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8025,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 6,
+            "trial_id": 8002,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 7,
+            "trial_id": 8001,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 8,
+            "trial_id": 8012,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 9,
+            "trial_id": 8011,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 10,
+            "trial_id": 8022,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 11,
+            "trial_id": 8021,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 12,
+            "trial_id": 8004,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 13,
+            "trial_id": 8003,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 14,
+            "trial_id": 8014,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 15,
+            "trial_id": 8013,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 16,
+            "trial_id": 8024,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 17,
+            "trial_id": 8023,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 18,
+            "trial_id": 8010,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 19,
+            "trial_id": 8009,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 20,
+            "trial_id": 8020,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 21,
+            "trial_id": 8019,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 22,
+            "trial_id": 8030,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 23,
+            "trial_id": 8029,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 24,
+            "trial_id": 8008,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 25,
+            "trial_id": 8007,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 26,
+            "trial_id": 8018,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 27,
+            "trial_id": 8017,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 28,
+            "trial_id": 8028,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 29,
+            "trial_id": 8027,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ]
+      },
+      "sha256": "efd67ee9f73a7edb03702238ab34f637a7bfc328547ee7b9c4746fbf03228bd7"
+    },
+    {
+      "ladder_id": "L2",
+      "construction_seed": 303,
+      "pose_addition_order": [
+        "eff_train_mid_right",
+        "eff_train_right",
+        "eff_train_center",
+        "eff_train_mid_left",
+        "eff_train_left"
+      ],
+      "budgets": {
+        "6": [
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027
+        ],
+        "12": [
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029
+        ],
+        "18": [
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029,
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025
+        ],
+        "24": [
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029,
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023
+        ],
+        "30": [
+          8008,
+          8007,
+          8018,
+          8017,
+          8028,
+          8027,
+          8010,
+          8009,
+          8020,
+          8019,
+          8030,
+          8029,
+          8006,
+          8005,
+          8016,
+          8015,
+          8026,
+          8025,
+          8004,
+          8003,
+          8014,
+          8013,
+          8024,
+          8023,
+          8002,
+          8001,
+          8012,
+          8011,
+          8022,
+          8021
+        ]
+      },
+      "budget_entries": {
+        "6": [
+          {
+            "order": 0,
+            "trial_id": 8008,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8007,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8018,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8017,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8028,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8027,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ],
+        "12": [
+          {
+            "order": 0,
+            "trial_id": 8008,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8007,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8018,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8017,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8028,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8027,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 6,
+            "trial_id": 8010,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 7,
+            "trial_id": 8009,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 8,
+            "trial_id": 8020,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 9,
+            "trial_id": 8019,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 10,
+            "trial_id": 8030,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 11,
+            "trial_id": 8029,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ],
+        "18": [
+          {
+            "order": 0,
+            "trial_id": 8008,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8007,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8018,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8017,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8028,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8027,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 6,
+            "trial_id": 8010,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 7,
+            "trial_id": 8009,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 8,
+            "trial_id": 8020,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 9,
+            "trial_id": 8019,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 10,
+            "trial_id": 8030,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 11,
+            "trial_id": 8029,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 12,
+            "trial_id": 8006,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 13,
+            "trial_id": 8005,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 14,
+            "trial_id": 8016,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 15,
+            "trial_id": 8015,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 16,
+            "trial_id": 8026,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 17,
+            "trial_id": 8025,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ],
+        "24": [
+          {
+            "order": 0,
+            "trial_id": 8008,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8007,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8018,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8017,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8028,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8027,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 6,
+            "trial_id": 8010,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 7,
+            "trial_id": 8009,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 8,
+            "trial_id": 8020,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 9,
+            "trial_id": 8019,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 10,
+            "trial_id": 8030,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 11,
+            "trial_id": 8029,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 12,
+            "trial_id": 8006,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 13,
+            "trial_id": 8005,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 14,
+            "trial_id": 8016,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 15,
+            "trial_id": 8015,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 16,
+            "trial_id": 8026,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 17,
+            "trial_id": 8025,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 18,
+            "trial_id": 8004,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 19,
+            "trial_id": 8003,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 20,
+            "trial_id": 8014,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 21,
+            "trial_id": 8013,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 22,
+            "trial_id": 8024,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 23,
+            "trial_id": 8023,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ],
+        "30": [
+          {
+            "order": 0,
+            "trial_id": 8008,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 1,
+            "trial_id": 8007,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 2,
+            "trial_id": 8018,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 3,
+            "trial_id": 8017,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 4,
+            "trial_id": 8028,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 5,
+            "trial_id": 8027,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.009,
+              -0.2365,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 6,
+            "trial_id": 8010,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 7,
+            "trial_id": 8009,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 8,
+            "trial_id": 8020,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 9,
+            "trial_id": 8019,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 10,
+            "trial_id": 8030,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 11,
+            "trial_id": 8029,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_right",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.018,
+              -0.238,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 12,
+            "trial_id": 8006,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 13,
+            "trial_id": 8005,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 14,
+            "trial_id": 8016,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 15,
+            "trial_id": 8015,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 16,
+            "trial_id": 8026,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 17,
+            "trial_id": 8025,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_center",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              0.0,
+              -0.235,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 18,
+            "trial_id": 8004,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 19,
+            "trial_id": 8003,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 20,
+            "trial_id": 8014,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 21,
+            "trial_id": 8013,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 22,
+            "trial_id": 8024,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 23,
+            "trial_id": 8023,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_mid_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.009,
+              -0.2335,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 24,
+            "trial_id": 8002,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_-18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 25,
+            "trial_id": 8001,
+            "orientation": "yaw_-18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_-18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": -18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 26,
+            "trial_id": 8012,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_0|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 27,
+            "trial_id": 8011,
+            "orientation": "yaw_0",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_0|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 0.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "order": 28,
+            "trial_id": 8022,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "high_staged_vertical_pregrasp",
+            "stratum": "yaw_18|high_staged_vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "order": 29,
+            "trial_id": 8021,
+            "orientation": "yaw_18",
+            "object_pose": "eff_train_left",
+            "approach": "vertical_pregrasp",
+            "stratum": "yaw_18|vertical_pregrasp",
+            "object_xyz": [
+              -0.018,
+              -0.232,
+              0.069
+            ],
+            "yaw_degrees": 18.0,
+            "axis_mode": "world_z",
+            "repeat": 0
+          }
+        ]
+      },
+      "sha256": "f8b3eaf240ec14b38e8f01dd857a37e936869bb0c2b34670c72f48ed7a11012d"
+    }
+  ],
+  "ladder_count": 3,
+  "evaluation": {
+    "note": "New versioned efficiency splits. Never aliases of protocol-v2 validation or final.",
+    "splits": {
+      "development": {
+        "name": "development",
+        "start_trial_id": 9001,
+        "object_poses": [
+          {
+            "label": "eff_dev_left_outer",
+            "xyz": [
+              -0.0135,
+              -0.23275,
+              0.069
+            ]
+          },
+          {
+            "label": "eff_dev_left_inner",
+            "xyz": [
+              -0.0045,
+              -0.23425,
+              0.069
+            ]
+          },
+          {
+            "label": "eff_dev_right_inner",
+            "xyz": [
+              0.0045,
+              -0.23575,
+              0.069
+            ]
+          },
+          {
+            "label": "eff_dev_right_outer",
+            "xyz": [
+              0.0135,
+              -0.23725,
+              0.069
+            ]
+          }
+        ],
+        "trial_count": 24,
+        "specs": [
+          {
+            "trial_id": 9001,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_dev_left_outer",
+            "object_xyz": [
+              -0.0135,
+              -0.23275,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9002,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_dev_left_outer",
+            "object_xyz": [
+              -0.0135,
+              -0.23275,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9003,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_dev_left_inner",
+            "object_xyz": [
+              -0.0045,
+              -0.23425,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9004,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_dev_left_inner",
+            "object_xyz": [
+              -0.0045,
+              -0.23425,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9005,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_dev_right_inner",
+            "object_xyz": [
+              0.0045,
+              -0.23575,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9006,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_dev_right_inner",
+            "object_xyz": [
+              0.0045,
+              -0.23575,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9007,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_dev_right_outer",
+            "object_xyz": [
+              0.0135,
+              -0.23725,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9008,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_dev_right_outer",
+            "object_xyz": [
+              0.0135,
+              -0.23725,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9009,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_dev_left_outer",
+            "object_xyz": [
+              -0.0135,
+              -0.23275,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9010,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_dev_left_outer",
+            "object_xyz": [
+              -0.0135,
+              -0.23275,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9011,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_dev_left_inner",
+            "object_xyz": [
+              -0.0045,
+              -0.23425,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9012,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_dev_left_inner",
+            "object_xyz": [
+              -0.0045,
+              -0.23425,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9013,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_dev_right_inner",
+            "object_xyz": [
+              0.0045,
+              -0.23575,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9014,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_dev_right_inner",
+            "object_xyz": [
+              0.0045,
+              -0.23575,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9015,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_dev_right_outer",
+            "object_xyz": [
+              0.0135,
+              -0.23725,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9016,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_dev_right_outer",
+            "object_xyz": [
+              0.0135,
+              -0.23725,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9017,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_dev_left_outer",
+            "object_xyz": [
+              -0.0135,
+              -0.23275,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9018,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_dev_left_outer",
+            "object_xyz": [
+              -0.0135,
+              -0.23275,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9019,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_dev_left_inner",
+            "object_xyz": [
+              -0.0045,
+              -0.23425,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9020,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_dev_left_inner",
+            "object_xyz": [
+              -0.0045,
+              -0.23425,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9021,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_dev_right_inner",
+            "object_xyz": [
+              0.0045,
+              -0.23575,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9022,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_dev_right_inner",
+            "object_xyz": [
+              0.0045,
+              -0.23575,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9023,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_dev_right_outer",
+            "object_xyz": [
+              0.0135,
+              -0.23725,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 9024,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_dev_right_outer",
+            "object_xyz": [
+              0.0135,
+              -0.23725,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          }
+        ]
+      },
+      "locked_evaluation": {
+        "name": "locked_evaluation",
+        "start_trial_id": 10001,
+        "object_poses": [
+          {
+            "label": "eff_locked_left_outer",
+            "xyz": [
+              -0.01125,
+              -0.233125,
+              0.069
+            ]
+          },
+          {
+            "label": "eff_locked_left_inner",
+            "xyz": [
+              -0.00225,
+              -0.234625,
+              0.069
+            ]
+          },
+          {
+            "label": "eff_locked_right_inner",
+            "xyz": [
+              0.00225,
+              -0.235375,
+              0.069
+            ]
+          },
+          {
+            "label": "eff_locked_right_outer",
+            "xyz": [
+              0.01125,
+              -0.236875,
+              0.069
+            ]
+          }
+        ],
+        "trial_count": 24,
+        "specs": [
+          {
+            "trial_id": 10001,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_locked_left_outer",
+            "object_xyz": [
+              -0.01125,
+              -0.233125,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10002,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_locked_left_outer",
+            "object_xyz": [
+              -0.01125,
+              -0.233125,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10003,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_locked_left_inner",
+            "object_xyz": [
+              -0.00225,
+              -0.234625,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10004,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_locked_left_inner",
+            "object_xyz": [
+              -0.00225,
+              -0.234625,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10005,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_locked_right_inner",
+            "object_xyz": [
+              0.00225,
+              -0.235375,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10006,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_locked_right_inner",
+            "object_xyz": [
+              0.00225,
+              -0.235375,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10007,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_locked_right_outer",
+            "object_xyz": [
+              0.01125,
+              -0.236875,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10008,
+            "orientation": "yaw_-18",
+            "yaw_degrees": -18.0,
+            "object_pose": "eff_locked_right_outer",
+            "object_xyz": [
+              0.01125,
+              -0.236875,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10009,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_locked_left_outer",
+            "object_xyz": [
+              -0.01125,
+              -0.233125,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10010,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_locked_left_outer",
+            "object_xyz": [
+              -0.01125,
+              -0.233125,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10011,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_locked_left_inner",
+            "object_xyz": [
+              -0.00225,
+              -0.234625,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10012,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_locked_left_inner",
+            "object_xyz": [
+              -0.00225,
+              -0.234625,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10013,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_locked_right_inner",
+            "object_xyz": [
+              0.00225,
+              -0.235375,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10014,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_locked_right_inner",
+            "object_xyz": [
+              0.00225,
+              -0.235375,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10015,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_locked_right_outer",
+            "object_xyz": [
+              0.01125,
+              -0.236875,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10016,
+            "orientation": "yaw_0",
+            "yaw_degrees": 0.0,
+            "object_pose": "eff_locked_right_outer",
+            "object_xyz": [
+              0.01125,
+              -0.236875,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10017,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_locked_left_outer",
+            "object_xyz": [
+              -0.01125,
+              -0.233125,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10018,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_locked_left_outer",
+            "object_xyz": [
+              -0.01125,
+              -0.233125,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10019,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_locked_left_inner",
+            "object_xyz": [
+              -0.00225,
+              -0.234625,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10020,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_locked_left_inner",
+            "object_xyz": [
+              -0.00225,
+              -0.234625,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10021,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_locked_right_inner",
+            "object_xyz": [
+              0.00225,
+              -0.235375,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10022,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_locked_right_inner",
+            "object_xyz": [
+              0.00225,
+              -0.235375,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10023,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_locked_right_outer",
+            "object_xyz": [
+              0.01125,
+              -0.236875,
+              0.069
+            ],
+            "approach": "vertical_pregrasp",
+            "axis_mode": "world_z",
+            "repeat": 0
+          },
+          {
+            "trial_id": 10024,
+            "orientation": "yaw_18",
+            "yaw_degrees": 18.0,
+            "object_pose": "eff_locked_right_outer",
+            "object_xyz": [
+              0.01125,
+              -0.236875,
+              0.069
+            ],
+            "approach": "high_staged_vertical_pregrasp",
+            "axis_mode": "high_world_z",
+            "repeat": 0
+          }
+        ]
+      }
+    },
+    "gates": {
+      "success": true,
+      "event_order_valid": true,
+      "physical_sanity_pass": true,
+      "source": "pickup_task strict physics gates unchanged"
+    },
+    "locked_access": {
+      "requires_flag": "--allow-locked-evaluation",
+      "accessed_by_registration_goal": false
+    }
+  },
+  "matrix": {
+    "budgets": [
+      6,
+      12,
+      18,
+      24,
+      30
+    ],
+    "ladders": [
+      "L0",
+      "L1",
+      "L2"
+    ],
+    "model_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "action_spaces": [
+      "joint_delta",
+      "ee_tool_delta"
+    ],
+    "planned_cell_count": 150,
+    "formula": "5 budgets x 3 ladders x 5 seeds x 2 action spaces"
+  },
+  "endpoints": {
+    "primary": {
+      "name": "normalized_auc_success_vs_demo_count",
+      "description": "Normalized area under success rate versus distinct-demo-count curve, per action space.",
+      "paired_contrast": "joint_minus_ee_auc_difference on identical (ladder, model_seed, evaluation specs)"
+    },
+    "secondary": [
+      "success_difference_at_each_budget",
+      "event_order_valid_rate",
+      "physical_sanity_pass_rate",
+      "worst_model_seed_success",
+      "hard_limit_infeasible_exposure",
+      "early_close",
+      "reopen",
+      "supervised_timestep_count",
+      "training_wall_time",
+      "rollout_wall_time",
+      "model_bytes",
+      "peak_process_memory_if_available"
+    ]
+  },
+  "uncertainty": {
+    "method": "paired_bootstrap_over_preregistered_units",
+    "paired_unit": "(ladder_id, model_seed)",
+    "paired_unit_count": 15,
+    "notes": [
+      "Model seeds and subset ladders are distinct variance factors.",
+      "Five model seeds alone do not measure demonstration-selection variance.",
+      "Never extrapolate a demo threshold beyond observed budgets.",
+      "If a target performance level is not crossed, report not_reached."
+    ],
+    "bootstrap_replicates": 10000,
+    "confidence_level": 0.95
+  },
+  "execution_policy": {
+    "primary_curve_executed": false,
+    "locked_evaluation_accessed": false,
+    "primary_eval_split": "development",
+    "locked_eval_split": "locked_evaluation",
+    "smoke_allowed": {
+      "non_efficacy_smoke": true,
+      "max_epochs": 2,
+      "max_eval_limit": 1,
+      "budgets": 1,
+      "ladders": 1,
+      "seeds": 1,
+      "eval_split": "development"
+    }
+  }
+}

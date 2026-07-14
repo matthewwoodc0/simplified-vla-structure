@@ -43,10 +43,13 @@ TRACKED_SOURCE_PATHS = (
     "scripts/validate_vision_dataset.py",
     "scripts/render_vision_dataset_preview.py",
     "scripts/train_state_bc.py",
+    "scripts/run_state_bc_efficiency_curve.py",
     "src/svla/pick_place_replay.py",
+    "src/svla/efficiency/protocol.py",
     "scripts/run_phase5_baseline_pytest.py",
     "scripts/build_phase5_baseline_aggregate.py",
     "configs/phase5_evaluation_protocol_v2.json",
+    "configs/state_bc_efficiency_protocol_v1.json",
 )
 
 MANIFEST_IDENTITY_FIELDS = (

@@ -216,18 +216,26 @@ needs review. Do not overclaim from passing tests alone.
   controller-integration replication. Do not claim EE is universally worse. Final not
   accessed; Phase 6b not started. Evidence: `evidence/phase5_causal_synthesis.json`. Report:
   `reports/2026-07-14-phase5-causal-synthesis.md`.
+- **2026-07-14:** **EFF-001 registered_not_run** — demonstration-efficiency curve
+  infrastructure and preregistration complete (nested ladders, 150-cell matrix,
+  development + locked_evaluation splits, dry-run + plumbing smoke). Primary curve and
+  locked evaluation **not** executed; stop for independent review.
+  Evidence: `evidence/state_bc_efficiency_curve_registration.json`.
+  Report: `reports/2026-07-14-efficiency-curve-preregistration.md`.
 
 ## YOU ARE HERE
 
-**Integration target:** `main` contains the reviewed Phase 5 causal synthesis freeze plus
-the audited Phase 6a infrastructure and post-H-EE-014 residual evidence. Create a focused
-research branch for each later experiment; do not run new hypotheses directly on `main`.
+**Integration target:** work EFF-001 on branch `codex/state-bc-efficiency-curve` (merge only
+after independent review). `main` holds the Phase 5 causal synthesis freeze. Create a
+focused research branch for each later experiment; do not run new hypotheses directly on
+`main`.
 
-**Current phase:** Phase 5 pickup **rescue program closed** (synthesis freeze). Phase 6a
+**Current phase:** Phase 5 pickup **rescue program closed** (synthesis freeze). **EFF-001
+efficiency-curve study is `registered_not_run`** — READY_FOR_EFFICIENCY_REVIEW. Phase 6a
 vision infrastructure remains plumbing-only. The learned-policy comparison uses the frozen
-fair hybrid contract for the **next comparative program** (efficiency, pick-place,
-controller-integration replication). The final holdout remains **closed**, and Phase 6b
-vision-conditioned policy/VLA work is **not started**.
+fair hybrid contract. The final holdout remains **closed**, protocol-v2 final remains
+**closed**, efficiency `locked_evaluation` remains **closed**, and Phase 6b is **not
+started**.
 
 Phases 1–5 plus Phase 6a infrastructure are built: MuJoCo SO-101 arm, damped-least-squares
 IK controller, action-space adapters, table/cube pickup task, scripted demonstrations,
@@ -250,6 +258,9 @@ Core modules:
 - `src/svla/pickup_task.py`: pickup + pick-place evaluator with physics-audit telemetry and gates.
 - `src/svla/pick_place_replay.py`: action replay with grasp-segment boundary from demo metadata.
 - `src/svla/state_bc.py`, `src/svla/demo_recorder.py`: demonstration recording and BC.
+- `src/svla/efficiency/protocol.py`, `scripts/run_state_bc_efficiency_curve.py`,
+  `analysis/efficiency_curve.py`: EFF-001 nested-ladder efficiency matrix, runner, and
+  read-only AUC/CI analysis (primary curve not executed).
 - `src/svla/vision_observations.py`, `src/svla/vision_dataset.py`: fixed-camera RGB
   observation capture, compact NPZ frame datasets, and manifest validation.
 - `scripts/validate_task_robustness.py`: readiness vs broad domain stress tests.
@@ -448,6 +459,10 @@ bash scripts/run_mujoco_gui.sh
 PYTHONPATH=src .venv/bin/python scripts/run_pickup_trials.py
 PYTHONPATH=src .venv/bin/python scripts/validate_task_robustness.py --domain readiness
 PYTHONPATH=src .venv/bin/python scripts/train_state_bc.py --output-dir outputs/state_bc
+# EFF-001 efficiency curve (registered_not_run): dry-run only until independent review.
+PYTHONPATH=src .venv/bin/python scripts/run_state_bc_efficiency_curve.py --mode dry-run \
+  --output-dir outputs/state_bc_efficiency_curve
+# Do NOT pass --allow-locked-evaluation or --mode primary-curve without review approval.
 ```
 
 For ad hoc Python commands from the repo without installing the package, use:
@@ -491,8 +506,10 @@ tuning. Durable freeze: `evidence/phase5_causal_synthesis.json`.
 
 ### Ordered next research program (state-based, frozen fair contract)
 
-1. **Demonstration efficiency** — preregister nested/stratified demo-count curve for both
-   action spaces under the frozen hybrid A1 + `global_gripper` contract.
+1. **Demonstration efficiency (EFF-001)** — **`registered_not_run`**. Protocol, 150-cell
+   matrix, ladders, development/locked splits, runner, tests, and plumbing smoke are
+   ready. **Primary curve and locked evaluation require independent review first.**
+   Do not treat smoke outcomes as scientific results.
 2. **Learned pick-place BC** — second manipulation task for **both** action spaces under the
    same contract (scripted/replay plumbing already exists).
 3. **Controller-integration replication** — Controller A (stateless
@@ -516,6 +533,8 @@ tuning. Durable freeze: `evidence/phase5_causal_synthesis.json`.
 ### Still closed / blocked / optional only
 
 - Final holdout: **closed**
+- Efficiency `locked_evaluation`: **closed** (requires `--allow-locked-evaluation` after review)
+- EFF-001 primary 150-fit curve: **not run** (review stop)
 - Phase 6b vision-conditioned BC / language / VLA: **blocked / not started**
 - H-EE-024/SP3 impulse train and H-EE-017 history: **optional mechanism backlog only**
 - Do not re-run H-EE-003/007/010/011/012/013/015/002/022/023 or H-JNT-001 as defaults

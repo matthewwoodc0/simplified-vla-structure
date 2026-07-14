@@ -60,6 +60,11 @@ Small tracked evidence records point to the ignored raw artifacts and freeze the
   closeout: source artifact SHA-256 hashes, decisive probe ruled-out/not-ruled-out claims,
   the selected fair hybrid comparison contract, and the ordered next program
   (efficiency → pick-place → second controller). Documentation-only; no final access.
+- `evidence/state_bc_efficiency_curve_registration.json` preregisters EFF-001 (nested
+  demo ladders, 150-fit matrix, development + locked_evaluation splits, endpoints, and
+  future primary command). Status `registered_not_run`: primary curve and locked
+  evaluation were **not** executed. Companion compact dry-run matrix:
+  `evidence/state_bc_efficiency_curve_matrix_dry_run.json`.
 
 The raw selected-policy result is the learned-policy ladder. The guarded result is a
 `shielded_policy=true` diagnostic and must never replace or be blended with raw BC. The
