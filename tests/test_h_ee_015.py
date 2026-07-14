@@ -24,15 +24,17 @@ from svla.h_ee_015 import (
     OracleFsmHybridPolicy,
     OracleGripperFSM,
     align_paired_rows,
+    assert_finalize_artifact_hashes,
     assert_oracle_flags,
     build_paired_comparison,
     build_registration,
     classify_verdict,
     is_missing_lift_eo,
+    sha256_file,
     summarize_baseline_rows,
     summarize_rows,
 )
-from svla.state_bc import HybridNNGripperMLPPolicy
+from svla.state_bc import HybridNNGripperMLPPolicy, write_json
 
 
 # ---------------------------------------------------------------------------
@@ -561,3 +563,61 @@ def test_summarize_baseline_rows_primary_fields():
     assert metrics["successes"] == 20
     assert metrics["per_seed_successes"][0] == 20
     assert len(metrics["paired_keys"]) == TOTAL_TRIALS
+
+
+def test_assert_finalize_artifact_hashes_detects_stale_summary_sha(tmp_path: Path):
+    """Manifest must hash the *final* summary file, not a pre-refresh copy."""
+
+    reg = tmp_path / "h_ee_015_registration.json"
+    trials = tmp_path / "h_ee_015_trials.jsonl"
+    summary = tmp_path / "h_ee_015_summary.json"
+    paired = tmp_path / "h_ee_015_paired_comparison.json"
+    manifest = tmp_path / "h_ee_015_experiment_manifest.json"
+
+    write_json(reg, {"format": "registration", "final_accessed": False})
+    trials.write_text('{"seed":0,"trial_id":6001}\n', encoding="utf-8")
+    write_json(paired, {"format": "paired", "new_successes": 0})
+
+    # Pre-refresh summary (missing paired block).
+    write_json(summary, {"format": "summary", "metrics": {"successes": 47}})
+    stale_summary_sha = sha256_file(summary)
+
+    # Final summary rewrite (what finalize must hash).
+    write_json(
+        summary,
+        {
+            "format": "summary",
+            "metrics": {"successes": 47},
+            "paired": {"new_successes": 5, "lost_successes": 20},
+        },
+    )
+    final_summary_sha = sha256_file(summary)
+    assert final_summary_sha != stale_summary_sha
+
+    # Bug pattern: manifest recorded the stale pre-refresh hash.
+    write_json(
+        manifest,
+        {
+            "format": "svla_h_ee_015_experiment_manifest_v1",
+            "registration_sha256": sha256_file(reg),
+            "trials_sha256": sha256_file(trials),
+            "summary_sha256": stale_summary_sha,
+            "paired_comparison_sha256": sha256_file(paired),
+        },
+    )
+    with pytest.raises(ValueError, match="summary_sha256"):
+        assert_finalize_artifact_hashes(tmp_path)
+
+    # Correct order: hash after final summary write.
+    write_json(
+        manifest,
+        {
+            "format": "svla_h_ee_015_experiment_manifest_v1",
+            "registration_sha256": sha256_file(reg),
+            "trials_sha256": sha256_file(trials),
+            "summary_sha256": final_summary_sha,
+            "paired_comparison_sha256": sha256_file(paired),
+        },
+    )
+    actual = assert_finalize_artifact_hashes(tmp_path)
+    assert actual["summary_sha256"] == final_summary_sha

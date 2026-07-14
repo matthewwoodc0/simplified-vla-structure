@@ -187,8 +187,10 @@ No new videos were generated for this diagnostic. Residual visual freeze from SP
 
 - `src/svla/h_ee_015.py` — experiment library (FSM, wrapper, metrics, verdict).
 - `src/svla/state_bc.py` — opt-in oracle signal hook in `rollout_policy`.
-- `scripts/run_h_ee_015_fsm_upper_bound.py` — dedicated runner.
-- `tests/test_h_ee_015.py` — focused unit tests.
+- `scripts/run_h_ee_015_fsm_upper_bound.py` — dedicated runner; finalize writes the
+  final summary before hashing it into the experiment manifest, then runs
+  `assert_finalize_artifact_hashes`.
+- `tests/test_h_ee_015.py` — focused unit tests, including stale-summary-hash detection.
 - `outputs/h_ee_015_fsm_upper_bound/*` — registration, trials, summary, paired, manifest.
 - `reports/2026-07-14-h-ee-015-fsm-upper-bound.md` — this report.
 - `researchnotes.md`, `RESULTS.md`, `AGENTS.md` — status / next-step updates.

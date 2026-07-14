@@ -27,6 +27,7 @@ from svla.h_ee_015 import (
     TOTAL_TRIALS,
     OracleFsmHybridPolicy,
     align_paired_rows,
+    assert_finalize_artifact_hashes,
     build_paired_comparison,
     build_registration,
     classify_verdict,
@@ -380,7 +381,21 @@ def finalize(args: argparse.Namespace) -> None:
     paired = build_paired_comparison(baseline_rows, rows)
     write_json(output_dir / "h_ee_015_paired_comparison.json", paired)
 
-    # Experiment manifest with all hashes and oracle flags.
+    # Write the final summary BEFORE hashing it into the experiment manifest.
+    # Hashing pre-refresh would leave summary_sha256 mismatched with the file.
+    summary["paired"] = {
+        "new_successes": paired["new_successes"],
+        "lost_successes": paired["lost_successes"],
+        "net_success_change": paired["net_success_change"],
+        "new_successes_from_baseline_missing_lift": paired[
+            "new_successes_from_baseline_missing_lift"
+        ],
+    }
+    summary["verdict"] = verdict
+    summary["metrics"] = metrics
+    write_json(summary_path, summary)
+
+    # Experiment manifest with all hashes and oracle flags (post-final-summary).
     reg_sha = sha256_file(_registration_path(output_dir))
     trials_sha = sha256_file(trials_path)
     summary_sha = sha256_file(summary_path)
@@ -428,18 +443,8 @@ def finalize(args: argparse.Namespace) -> None:
     }
     write_json(output_dir / "h_ee_015_experiment_manifest.json", manifest)
 
-    # Refresh summary with paired counts for convenience.
-    summary["paired"] = {
-        "new_successes": paired["new_successes"],
-        "lost_successes": paired["lost_successes"],
-        "net_success_change": paired["net_success_change"],
-        "new_successes_from_baseline_missing_lift": paired[
-            "new_successes_from_baseline_missing_lift"
-        ],
-    }
-    summary["verdict"] = verdict
-    summary["metrics"] = metrics
-    write_json(summary_path, summary)
+    # Hard consistency gate: every recorded hash must match the on-disk file.
+    assert_finalize_artifact_hashes(output_dir)
 
     print(
         json.dumps(
@@ -452,6 +457,7 @@ def finalize(args: argparse.Namespace) -> None:
                 "never_transitioned": metrics["never_transitioned"],
                 "paired": summary["paired"],
                 "final_accessed": False,
+                "summary_sha256": summary_sha,
             },
             indent=2,
         )

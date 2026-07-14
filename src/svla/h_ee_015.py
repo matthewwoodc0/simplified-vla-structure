@@ -827,6 +827,42 @@ def classify_verdict(
     }
 
 
+def assert_finalize_artifact_hashes(output_dir: Path) -> dict[str, str]:
+    """Verify experiment-manifest SHA-256 fields match the on-disk artifact files.
+
+    Finalize must write the final summary *before* hashing it into the
+    experiment manifest. This gate catches that ordering bug.
+    """
+
+    output_dir = Path(output_dir)
+    manifest_path = output_dir / "h_ee_015_experiment_manifest.json"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"missing experiment manifest: {manifest_path}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    checks = {
+        "registration_sha256": output_dir / "h_ee_015_registration.json",
+        "trials_sha256": output_dir / "h_ee_015_trials.jsonl",
+        "summary_sha256": output_dir / "h_ee_015_summary.json",
+        "paired_comparison_sha256": output_dir / "h_ee_015_paired_comparison.json",
+    }
+    actual: dict[str, str] = {}
+    mismatches: dict[str, dict[str, str]] = {}
+    for field, path in checks.items():
+        if not path.is_file():
+            raise FileNotFoundError(f"missing finalize artifact: {path}")
+        digest = sha256_file(path)
+        actual[field] = digest
+        recorded = str(manifest.get(field) or "")
+        if recorded != digest:
+            mismatches[field] = {"recorded": recorded, "actual": digest, "path": str(path)}
+    if mismatches:
+        raise ValueError(
+            "finalize artifact hash mismatch (write final summary before hashing): "
+            f"{mismatches}"
+        )
+    return actual
+
+
 def build_registration(
     *,
     protocol_metadata: dict[str, Any],
