@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any
 import json
 
 import numpy as np
@@ -1517,13 +1518,15 @@ def _adam_update(
 
 def rollout_policy(
     env: PickupTaskEvaluator,
-    policy: NearestNeighborBCPolicy | MLPBCPolicy | HybridNNGripperMLPPolicy,
+    policy: NearestNeighborBCPolicy | MLPBCPolicy | HybridNNGripperMLPPolicy | Any,
     spec: PickupTrialSpec,
     max_steps: int = 3200,
     search_window: int = 120,
     action_gain: float = 1.0,
     gripper_close_guard: bool = False,
 ) -> PolicyTrialResult:
+    # Optional oracle-FSM policies (H-EE-015) expose set_oracle_signals; default
+    # hybrid / MLP / NN policies do not, so this path is a pure no-op for them.
     representation = get_action_representation(policy.action_space)
     env.reset(np.asarray(spec.object_pose.xyz, dtype=float))
     settled_start = env.object_position.copy()
@@ -1552,10 +1555,23 @@ def rollout_policy(
     guard_closure_started = False
     gripper_command_flips = 0
     previous_gripper_closed: bool | None = None
+    uses_oracle_fsm = callable(getattr(policy, "set_oracle_signals", None))
 
     for _ in range(max_steps):
         observation = env.get_observation()
         features = observation_to_features(observation, context, settled_start)
+        # Privileged scripted-grasp signals for H-EE-015 oracle FSM only.
+        if uses_oracle_fsm:
+            ee_pos_pre, ee_quat_pre = env.controller.ee_pose(env.data)
+            pos_err_pre = float(np.linalg.norm(grasp_pos - ee_pos_pre))
+            rot_err_pre = float(
+                np.linalg.norm(_orientation_error_rotvec(ee_quat_pre, grasp_quat))
+            )
+            policy.set_oracle_signals(
+                pos_error_m=pos_err_pre,
+                rot_error_rad=rot_err_pre,
+                gripper_object_distance_m=env.gripper_object_distance(),
+            )
         action, nearest_distance, nearest_index = policy.predict_with_index(
             features,
             context.key,

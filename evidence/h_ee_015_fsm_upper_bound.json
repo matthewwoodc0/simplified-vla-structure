@@ -1,0 +1,93 @@
+{
+  "artifact_sha256": {
+    "experiment_manifest": "af9d1860e9d836d61746d0595265438193fa0c772966afb220ac8e197cd3a458",
+    "paired_comparison": "afec0a33cdeec7424baf818f878adc76a1c660c69ffa662951bd07d35b33d3f1",
+    "registration": "f7816b4c5a7b4ef0967cbf6396aa89b958a869a05aa884cde9a452476b37c80c",
+    "summary": "55c56caa037f6f9a17798007243a6172c4b8ef15d36584c2135c687d7abdf167",
+    "trials": "acee8012f83efebde18c72db69e4aaaca238ee5e85f1808ce77133b1f34ae9d2"
+  },
+  "baseline_primary": {
+    "controller_failures": 0,
+    "early_close": 11,
+    "event_order_valid": 79,
+    "missing_lift_eo": 30,
+    "per_seed_successes": [
+      20,
+      14,
+      9,
+      9,
+      10
+    ],
+    "physical_sanity_pass": 68,
+    "reopen_events": 0,
+    "successes": 62,
+    "worst_seed": 9
+  },
+  "final_accessed": false,
+  "format": "svla_h_ee_015_evidence_v1",
+  "fsm_contract": {
+    "close_command": 0.0,
+    "forbidden_inputs": [
+      "contact_state",
+      "future_state",
+      "outcome",
+      "success_gate",
+      "phase_clock",
+      "trial_specific_logic"
+    ],
+    "latch": true,
+    "never_reopen": true,
+    "open_command": 1.0,
+    "privileged_grasp_target": true,
+    "states": [
+      "OPEN_APPROACH",
+      "CLOSE_LATCHED"
+    ],
+    "thresholds": {
+      "gripper_object_distance_max_m": 0.015,
+      "inclusive": true,
+      "pos_error_max_m": 0.012,
+      "rot_error_max_rad": 0.22
+    }
+  },
+  "fsm_metrics": {
+    "contact_dynamics_failures": 27,
+    "controller_failures": 0,
+    "early_close": 0,
+    "event_order_valid": 77,
+    "impulse_almost_wins": 24,
+    "missing_lift_eo": 42,
+    "never_transitioned": 0,
+    "per_seed_successes": [
+      16,
+      12,
+      7,
+      7,
+      5
+    ],
+    "physical_sanity_pass": 56,
+    "reopen_events": 0,
+    "successes": 47,
+    "worst_seed": 5
+  },
+  "gripper_source": "oracle_fsm_h_ee_015",
+  "hypothesis": "H-EE-015",
+  "local_artifacts": "outputs/h_ee_015_fsm_upper_bound/",
+  "not_learned_policy_performance": true,
+  "oracle_diagnostic": true,
+  "paired": {
+    "lost_successes": 20,
+    "net_success_change": -15,
+    "new_successes": 5,
+    "new_successes_from_baseline_missing_lift": 1
+  },
+  "protocol": {
+    "config_sha256": "bffd862d76f401a9b512826ec8ca1207fba88bd12539a59370716bd22e946f99",
+    "eval_split": "validation",
+    "format": "svla_phase5_evaluation_protocol_v2",
+    "version": 2
+  },
+  "report": "reports/2026-07-14-h-ee-015-fsm-upper-bound.md",
+  "training_performed": false,
+  "verdict": "negative_arm_ceiling"
+}

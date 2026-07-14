@@ -198,6 +198,15 @@ needs review. Do not overclaim from passing tests alone.
   and early-close rose 11→25→48. Do not lower gain further or run an unregistered cap rescue.
   Final remains closed. Evidence: `outputs/h_ee_002_hybrid_gain_sweep/` and
   `evidence/h_ee_002_hybrid_gain_sweep.json`.
+- **2026-07-14:** **H-EE-015 `negative_arm_ceiling`** — frozen hybrid A1 EE arm + fixed
+  oracle gripper FSM (privileged scripted grasp-target thresholds) regressed EE success
+  **62→47**/120, EO 79→77, phys 68→**56**, worst seed 9→**5**, missing-lift EO 30→**42**.
+  FSM always transitioned (0 never-transitioned); early_close/reopen 0 by construction and
+  must not be credited as learned gains. Paired +5 recoveries / −20 regressions. Oracle
+  diagnostic only — not learned-policy performance; does not replace raw EE-vs-joint.
+  Best EE remains hybrid A1 **62/120**. Stop treating gripper logic as the primary remaining
+  fix. Evidence: `outputs/h_ee_015_fsm_upper_bound/`. Report:
+  `reports/2026-07-14-h-ee-015-fsm-upper-bound.md`.
 
 ## YOU ARE HERE
 
@@ -481,11 +490,13 @@ Phase 5 follow-up (not blocking vision infra):
   impulse almost-wins + early-close (vertical)** — not reopen.
 - **Post-014 residual program SP0–SP3 done:** H-EE-022/023 **rejected**; H-EE-024
   **diagnosed no-train**. Scoreboard: `outputs/post_h_ee_014_residual_scoreboard.json`.
-  - **Next open:** SP2b/H-EE-015 (early_close still 11), H-EE-017 if non-Markov,
-    SP6 joint pick-place optional.
-  - **Newly closed:** H-EE-007 raw observed labels failed the 18-demo executability gate;
-    H-EE-002 lower gain collapsed success despite lower constraint exposure. Do not rescale
-    raw labels, lower EE gain further, or add a cap rescue as an unregistered variant.
+  - **Next open:** SP3 train path only if softer close/approach is registered; H-EE-017
+    only if a non-Markov **arm** residual is carefully argued; SP6 joint pick-place optional.
+  - **Newly closed:** H-EE-015 oracle FSM arm upper bound returned **`negative_arm_ceiling`**
+    (47/120 vs hybrid 62/120); stop treating gripper logic as the primary remaining fix.
+    H-EE-007 raw observed labels failed the 18-demo executability gate; H-EE-002 lower gain
+    collapsed success despite lower constraint exposure. Do not rescale raw labels, lower EE
+    gain further, add a cap rescue, or retune the H-EE-015 FSM after validation.
   - **Still closed/blocked:** final holdout; Phase 6b vision BC.
 - One causal change per train; compare against hybrid A1 baseline (62), not pure MLP.
 - Do not re-run H-EE-022 match-set or H-EE-023 A2 as defaults; do not prioritize
