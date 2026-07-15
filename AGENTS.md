@@ -218,20 +218,22 @@ needs review. Do not overclaim from passing tests alone.
   `reports/2026-07-14-phase5-causal-synthesis.md`.
 - **2026-07-14:** **EFF-001 registered_not_run** — demonstration-efficiency curve
   infrastructure and preregistration complete (nested ladders, 150-cell matrix,
-  development + locked_evaluation splits, dry-run + plumbing smoke). Primary curve and
-  locked evaluation **not** executed; stop for independent review.
+  development + locked_evaluation splits, dry-run + plumbing smoke). **2026-07-15
+  independent review passed after corrections** to mode isolation, resume provenance,
+  exposure-rate math, and crossed-factor uncertainty. Primary curve and locked evaluation
+  remain **not executed**; the complete development primary curve is now ready.
   Evidence: `evidence/state_bc_efficiency_curve_registration.json`.
   Report: `reports/2026-07-14-efficiency-curve-preregistration.md`.
 
 ## YOU ARE HERE
 
-**Integration target:** work EFF-001 on branch `codex/state-bc-efficiency-curve` (merge only
-after independent review). `main` holds the Phase 5 causal synthesis freeze. Create a
-focused research branch for each later experiment; do not run new hypotheses directly on
-`main`.
+**Integration target:** `main` holds the Phase 5 causal synthesis freeze and the reviewed
+EFF-001 preregistration. Create a focused research branch for the primary curve and each
+later experiment; do not run new hypotheses directly on `main`.
 
 **Current phase:** Phase 5 pickup **rescue program closed** (synthesis freeze). **EFF-001
-efficiency-curve study is `registered_not_run`** — READY_FOR_EFFICIENCY_REVIEW. Phase 6a
+efficiency-curve study is `registered_not_run`** — READY_FOR_PRIMARY_CURVE after independent
+review. Phase 6a
 vision infrastructure remains plumbing-only. The learned-policy comparison uses the frozen
 fair hybrid contract. The final holdout remains **closed**, protocol-v2 final remains
 **closed**, efficiency `locked_evaluation` remains **closed**, and Phase 6b is **not
@@ -459,10 +461,10 @@ bash scripts/run_mujoco_gui.sh
 PYTHONPATH=src .venv/bin/python scripts/run_pickup_trials.py
 PYTHONPATH=src .venv/bin/python scripts/validate_task_robustness.py --domain readiness
 PYTHONPATH=src .venv/bin/python scripts/train_state_bc.py --output-dir outputs/state_bc
-# EFF-001 efficiency curve (registered_not_run): dry-run only until independent review.
+# EFF-001 review-safe dry-run (primary curve is ready but intentionally not run here).
 PYTHONPATH=src .venv/bin/python scripts/run_state_bc_efficiency_curve.py --mode dry-run \
   --output-dir outputs/state_bc_efficiency_curve
-# Do NOT pass --allow-locked-evaluation or --mode primary-curve without review approval.
+# Do NOT pass --allow-locked-evaluation; locked evaluation remains closed.
 ```
 
 For ad hoc Python commands from the repo without installing the package, use:
@@ -508,8 +510,9 @@ tuning. Durable freeze: `evidence/phase5_causal_synthesis.json`.
 
 1. **Demonstration efficiency (EFF-001)** — **`registered_not_run`**. Protocol, 150-cell
    matrix, ladders, development/locked splits, runner, tests, and plumbing smoke are
-   ready. **Primary curve and locked evaluation require independent review first.**
-   Do not treat smoke outcomes as scientific results.
+   ready, and independent review passed on 2026-07-15. **Next: run the complete development
+   primary curve on a focused branch.** Locked evaluation remains closed. Do not treat
+   smoke outcomes as scientific results.
 2. **Learned pick-place BC** — second manipulation task for **both** action spaces under the
    same contract (scripted/replay plumbing already exists).
 3. **Controller-integration replication** — Controller A (stateless
@@ -533,8 +536,8 @@ tuning. Durable freeze: `evidence/phase5_causal_synthesis.json`.
 ### Still closed / blocked / optional only
 
 - Final holdout: **closed**
-- Efficiency `locked_evaluation`: **closed** (requires `--allow-locked-evaluation` after review)
-- EFF-001 primary 150-fit curve: **not run** (review stop)
+- Efficiency `locked_evaluation`: **closed** (requires separate authorization and `--allow-locked-evaluation`)
+- EFF-001 primary 150-fit curve: **ready after review, not run**
 - Phase 6b vision-conditioned BC / language / VLA: **blocked / not started**
 - H-EE-024/SP3 impulse train and H-EE-017 history: **optional mechanism backlog only**
 - Do not re-run H-EE-003/007/010/011/012/013/015/002/022/023 or H-JNT-001 as defaults

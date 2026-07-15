@@ -29,6 +29,7 @@ from svla.efficiency.protocol import (
     validate_efficiency_protocol,
 )
 from svla.experiments.config import load_experiment_config, render_experiment_command
+from scripts.run_state_bc_efficiency_curve import _mean_step_rate, parse_args, run
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -127,6 +128,26 @@ def test_train_evaluation_split_disjointness():
     assert min(dev_ids) >= 9001
     assert min(locked_ids) >= 10001
     assert dev_ids.isdisjoint(locked_ids)
+    assert len(dev_ids) == 24
+    assert len(locked_ids) == 24
+
+
+def test_evaluation_split_balance_and_uncertainty_contract_are_frozen():
+    protocol = load_efficiency_protocol()
+    assert protocol.data["uncertainty"]["method"] == "crossed_factor_paired_bootstrap"
+    for split in ("development", "locked_evaluation"):
+        cfg = protocol.data["evaluation"]["splits"][split]
+        counts = {}
+        for row in cfg["specs"]:
+            key = f"{row['orientation']}|{row['approach']}"
+            counts[key] = counts.get(key, 0) + 1
+        assert set(counts) == set(protocol.data["strata"]["labels"])
+        assert set(counts.values()) == {4}
+
+    drift = copy.deepcopy(protocol.data)
+    drift["uncertainty"]["method"] = "iid_cell_bootstrap"
+    with pytest.raises(ValueError, match="crossed_factor"):
+        validate_efficiency_protocol(drift, synthesis_path=SYNTHESIS_PATH)
 
 
 def test_frozen_recipe_drift_rejection():
@@ -162,7 +183,16 @@ def test_resume_accepts_exact_match_and_rejects_stale():
         **cell.to_dict(),
         "status": "completed",
     }
-    validate_cell_artifact_for_resume(cell=cell, artifact=artifact)
+    context = {
+        "execution_mode": "primary-curve",
+        "eval_split": "development",
+    }
+    artifact.update(context)
+    validate_cell_artifact_for_resume(
+        cell=cell,
+        artifact=artifact,
+        execution_context=context,
+    )
 
     stale = dict(artifact)
     stale["recipe_hash"] = "0" * 64
@@ -173,6 +203,69 @@ def test_resume_accepts_exact_match_and_rejects_stale():
     stale2["demo_trial_ids"] = list(artifact["demo_trial_ids"])[::-1]
     with pytest.raises(ValueError, match="resume reject"):
         validate_cell_artifact_for_resume(cell=cell, artifact=stale2)
+
+    stale3 = dict(artifact)
+    stale3["eval_split"] = "locked_evaluation"
+    with pytest.raises(ValueError, match="execution eval_split"):
+        validate_cell_artifact_for_resume(
+            cell=cell,
+            artifact=stale3,
+            execution_context=context,
+        )
+
+
+def test_scientific_modes_reject_partial_or_recipe_drift(tmp_path):
+    primary = parse_args(
+        [
+            "--mode",
+            "primary-curve",
+            "--budgets",
+            "6",
+            "--output-dir",
+            str(tmp_path / "primary"),
+        ]
+    )
+    with pytest.raises(ValueError, match="complete registered matrix"):
+        run(primary)
+
+    locked = parse_args(
+        [
+            "--mode",
+            "locked-evaluation",
+            "--allow-locked-evaluation",
+            "--epochs",
+            "2",
+            "--output-dir",
+            str(tmp_path / "locked"),
+        ]
+    )
+    with pytest.raises(ValueError, match="frozen epoch count"):
+        run(locked)
+
+
+def test_smoke_requires_both_action_spaces(tmp_path):
+    args = parse_args(
+        [
+            "--mode",
+            "smoke",
+            "--action-spaces",
+            "joint_delta",
+            "--output-dir",
+            str(tmp_path / "smoke"),
+        ]
+    )
+    with pytest.raises(ValueError, match="both registered action spaces"):
+        run(args)
+
+
+def test_constraint_exposure_rate_uses_mean_steps_not_total_trial_steps():
+    summary = {
+        "mean_steps": 100.0,
+        "mean_joint_limit_clipped_steps": 25.0,
+        "mean_infeasible_steps": 10.0,
+    }
+    assert _mean_step_rate(summary, "mean_joint_limit_clipped_steps") == 0.25
+    assert _mean_step_rate(summary, "mean_infeasible_steps") == 0.1
 
 
 def test_locked_evaluation_requires_explicit_authorization():
@@ -288,11 +381,15 @@ def test_ci_distinguishes_subset_ladders_from_model_seeds():
         )
     ci = paired_bootstrap_ci(units, n_bootstrap=500, seed=0)
     assert ci["n_paired_units"] == 6
+    assert ci["resampling_scheme"] == "crossed_ladder_and_model_seed"
     keys = {(row["ladder_id"], row["model_seed"]) for row in ci["unit_keys"]}
     assert keys == {("L0", 0), ("L0", 1), ("L1", 0), ("L1", 1), ("L2", 0), ("L2", 1)}
     # Ladder factor present: not just seeds.
     assert len({k[0] for k in keys}) == 3
     assert len({k[1] for k in keys}) == 2
+
+    with pytest.raises(ValueError, match="complete ladder x model-seed grid"):
+        paired_bootstrap_ci(units[:-1], n_bootstrap=10, seed=0)
 
 
 def test_aggregate_cells_to_paired_units_requires_complete_curves():

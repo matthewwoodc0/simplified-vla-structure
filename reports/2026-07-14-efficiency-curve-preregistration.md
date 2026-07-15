@@ -8,19 +8,37 @@ frozen hybrid A1 fair contract. Exact nested demo ladders, a 150-fit matrix, a n
 evaluation protocol with development and locked splits, dry-run mode, resume hashing,
 read-only AUC/CI analysis, and contract tests are in place.
 
-**The scientific primary curve was not run. Locked evaluation was not accessed.** This stop
-is intentional so Codex (or another reviewer) can audit the protocol before any 300-epoch
-matrix execution.
+**The scientific primary curve was not run. Locked evaluation was not accessed.** An
+independent review completed on 2026-07-15 and corrected the execution/resume and
+uncertainty contracts before any 300-epoch matrix execution.
+
+## Independent Review - 2026-07-15
+
+The first review found a material holdout-safety bug: development and locked modes shared
+cell directories and resume identity, so a same-output-directory locked run could reuse or
+overwrite development results. The reviewed implementation now:
+
+- writes each mode under an isolated run directory;
+- rejects budget, ladder, seed, action-space, epoch, or eval-limit subsets in scientific modes;
+- validates evaluation split/trial identity, demo hashes, and execution-source identity on resume;
+- reuses immutable demo files instead of silently rewriting them;
+- computes constraint exposure as mean exposed steps divided by mean rollout steps;
+- bootstraps ladders and model seeds as crossed factors instead of treating 15 correlated
+  ladder-by-seed cells as independent replicates.
+
+The corrected dry-run still contains exactly 150 unique cells. A fresh two-cell smoke and
+exact-match resume both passed. This review authorizes only the complete development
+`primary-curve`; locked evaluation remains closed.
 
 ## What To Review
 
 - [ ] `configs/state_bc_efficiency_protocol_v1.json` — budgets, three ladders, frozen recipe, development + locked splits, endpoints.
 - [ ] `evidence/state_bc_efficiency_curve_registration.json` — tracked registration with hashes and `primary_curve_executed: false`.
 - [ ] `evidence/state_bc_efficiency_curve_matrix_dry_run.json` — 150 unique cell IDs and identity hashes.
-- [ ] `scripts/run_state_bc_efficiency_curve.py` — dry-run / smoke / primary / locked modes; locked requires `--allow-locked-evaluation`.
-- [ ] `analysis/efficiency_curve.py` — read-only AUC and paired bootstrap (ladder × seed units).
+- [x] `scripts/run_state_bc_efficiency_curve.py` — dry-run / smoke / primary / locked modes; scientific modes require the complete matrix and locked requires `--allow-locked-evaluation`.
+- [x] `analysis/efficiency_curve.py` — read-only AUC and crossed-factor paired bootstrap.
 - [ ] `tests/test_efficiency_protocol.py` — contract coverage.
-- [ ] Smoke only under `outputs/state_bc_efficiency_curve_smoke/` with `non_efficacy_smoke=true` (not scientific).
+- [x] Smoke only under `outputs/state_bc_efficiency_curve_smoke_reviewed_final/smoke/` with `non_efficacy_smoke=true` (not scientific).
 
 ## Implementation Details
 
@@ -54,7 +72,7 @@ protocol-v2 validation or final grids.
 
 - `src/svla/efficiency/protocol.py` — load/validate protocol; build matrix; resume identity checks; reject non-nested/unbalanced/duplicate/recipe-drift/overlap.
 - `scripts/run_state_bc_efficiency_curve.py` — dedicated runner (does **not** change default `train_state_bc.py` behavior).
-- `analysis/efficiency_curve.py` — normalized AUC, `not_reached` thresholds, paired bootstrap over `(ladder_id, model_seed)`.
+- `analysis/efficiency_curve.py` — normalized AUC, `not_reached` thresholds, crossed-factor bootstrap over ladders and model seeds.
 - `experiments/configs/state_bc_efficiency_curve_registered.json` — dry-run-first experiment config; `allow_locked_evaluation: false`.
 
 ### Endpoints (preregistered)
@@ -66,9 +84,10 @@ joint−EE AUC difference on identical (ladder, seed, eval specs).
 hard-limit/infeasible exposure, early close/reopen, supervised timestep count, train/rollout
 wall time, model bytes, peak RSS when available.
 
-**Uncertainty:** paired bootstrap over 15 preregistered units `(ladder, seed)`. Five model
-seeds alone do **not** measure demonstration-selection variance. No extrapolation past
-observed budgets; unmet targets report `not_reached`.
+**Uncertainty:** crossed-factor paired bootstrap over the 3 ladders and 5 model seeds.
+Ladders and seeds are resampled independently, preserving the paired joint−EE contrast
+without pretending that cells sharing a ladder or seed are independent. No extrapolation
+past observed budgets; unmet targets report `not_reached`.
 
 ## Evidence And Verification
 
@@ -82,16 +101,18 @@ PYTHONPATH=src .venv/bin/python scripts/run_state_bc_efficiency_curve.py --mode 
 
 # Plumbing-only smoke (not efficacy)
 PYTHONPATH=src .venv/bin/python scripts/run_state_bc_efficiency_curve.py --mode smoke \
-  --output-dir outputs/state_bc_efficiency_curve_smoke \
+  --output-dir outputs/state_bc_efficiency_curve_smoke_reviewed_final \
   --budgets 6 --ladders L0 --seeds 0 --epochs 2 --eval-limit 1
 ```
 
 - Result: dry-run wrote 150 unique cells; smoke completed 2 cells (joint + EE) with
-  `non_efficacy_smoke=true`, development split, eval_limit=1, epochs=2.
+  `non_efficacy_smoke=true`, development split, eval_limit=1, epochs=2. Exact-match
+  `--resume` skipped both cells safely. Focused tests passed **27/27**; the full suite
+  passed **191/191** with macOS graphics access.
 - Output artifacts:
   - `outputs/state_bc_efficiency_curve/efficiency_matrix_dry_run.json` (gitignored full matrix)
   - `evidence/state_bc_efficiency_curve_matrix_dry_run.json` (tracked compact matrix)
-  - `outputs/state_bc_efficiency_curve_smoke/efficiency_smoke_summary.json`
+  - `outputs/state_bc_efficiency_curve_smoke_reviewed_final/smoke/efficiency_smoke_summary.json`
 - What this proves: protocol validation, matrix identity, locked-access guard, demo
   generation, hybrid train/rollout plumbing, resume identity fields.
 - What it does **not** prove: sample efficiency of either action space; any ranking of
@@ -134,8 +155,8 @@ None for this goal. Smoke is plumbing-only and not for visual efficacy review.
 
 ## Action Items
 
-- [ ] Independent review of protocol, ladders, splits, and runner (Codex).
-- [ ] After approval only: run `--mode primary-curve` on development split.
+- [x] Independent review of protocol, ladders, splits, runner, resume, and analysis.
+- [ ] Run the complete `--mode primary-curve` matrix on the development split.
 - [ ] After primary analysis and separate authorization only: locked evaluation with
       `--allow-locked-evaluation`.
 - [ ] Do not open protocol-v2 final from this study.
@@ -160,8 +181,9 @@ None for this goal. Smoke is plumbing-only and not for visual efficacy review.
 
 ## Current Verdict
 
-**READY_FOR_EFFICIENCY_REVIEW**
+**READY_FOR_PRIMARY_CURVE**
 
-Infrastructure is ready to run. The primary efficiency curve and locked evaluation remain
-**unexecuted** and require independent review before any scientific matrix launch.
+Infrastructure has passed independent review after the corrections above. The primary
+efficiency curve and locked evaluation remain **unexecuted**. The complete development
+matrix is the next stage; locked evaluation still requires separate authorization.
 `primary_curve_executed: false`, `locked_evaluation_accessed: false`.

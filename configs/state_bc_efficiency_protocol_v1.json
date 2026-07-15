@@ -6114,11 +6114,13 @@
     ]
   },
   "uncertainty": {
-    "method": "paired_bootstrap_over_preregistered_units",
+    "method": "crossed_factor_paired_bootstrap",
     "paired_unit": "(ladder_id, model_seed)",
     "paired_unit_count": 15,
+    "resampling_scheme": "resample ladder ids and model seeds independently, then evaluate their sampled Cartesian product",
     "notes": [
       "Model seeds and subset ladders are distinct variance factors.",
+      "Cells sharing a ladder or model seed are correlated and are not treated as 15 independent replicates.",
       "Five model seeds alone do not measure demonstration-selection variance.",
       "Never extrapolate a demo threshold beyond observed budgets.",
       "If a target performance level is not crossed, report not_reached."

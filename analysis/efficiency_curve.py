@@ -47,6 +47,8 @@ def normalized_auc(
     y = np.asarray([float(r) for r in success_rates], dtype=float)
     if np.any(~np.isfinite(x)) or np.any(~np.isfinite(y)):
         raise ValueError("non-finite budget or success_rate")
+    if np.any((y < 0.0) | (y > 1.0)):
+        raise ValueError("success_rates must be in [0, 1]")
     if len(x) == 1:
         return 0.0
     order = np.argsort(x)
@@ -103,6 +105,7 @@ def assert_paired_key_alignment(units: Sequence[PairedUnit]) -> None:
     keys = [(u.ladder_id, int(u.model_seed)) for u in units]
     if len(keys) != len(set(keys)):
         raise ValueError("duplicate paired unit keys (ladder_id, model_seed)")
+    reference_budgets: list[int] | None = None
     for unit in units:
         joint_budgets = [p.budget for p in unit.joint_curve]
         ee_budgets = [p.budget for p in unit.ee_curve]
@@ -113,6 +116,12 @@ def assert_paired_key_alignment(units: Sequence[PairedUnit]) -> None:
             )
         if len(joint_budgets) != len(set(joint_budgets)):
             raise ValueError("duplicate budgets within a curve")
+        if reference_budgets is None:
+            reference_budgets = joint_budgets
+        elif joint_budgets != reference_budgets:
+            raise ValueError(
+                "paired budget grids differ across ladder/model-seed units"
+            )
 
 
 def unit_auc_pair(unit: PairedUnit) -> tuple[float, float, float]:
@@ -136,11 +145,12 @@ def paired_bootstrap_ci(
     seed: int = 0,
     statistic: str = "joint_minus_ee_auc",
 ) -> dict[str, Any]:
-    """Paired bootstrap over preregistered (ladder, seed) units.
+    """Crossed-factor paired bootstrap over ladders and model seeds.
 
-    Distinguishes subset ladders from model seeds: each unit is one pair
-    ``(ladder_id, model_seed)``. Resampling units does not treat five seeds alone
-    as a measure of demonstration-selection variance.
+    Each observed cell remains a paired joint-minus-EE unit, but ladders and model
+    seeds are resampled independently as crossed factors. Treating all 15
+    ladder-by-seed cells as independent would be pseudoreplication because cells
+    sharing a ladder or seed are correlated.
     """
     assert_paired_key_alignment(units)
     if not 0.0 < confidence_level < 1.0:
@@ -149,6 +159,7 @@ def paired_bootstrap_ci(
         raise ValueError("n_bootstrap must be >= 1")
 
     values = []
+    value_by_key: dict[tuple[str, int], float] = {}
     for unit in units:
         joint_auc, ee_auc, delta = unit_auc_pair(unit)
         if statistic == "joint_minus_ee_auc":
@@ -159,14 +170,29 @@ def paired_bootstrap_ci(
             values.append(ee_auc)
         else:
             raise ValueError(f"unknown statistic: {statistic}")
+        value_by_key[(unit.ladder_id, int(unit.model_seed))] = values[-1]
+    ladder_ids = sorted({unit.ladder_id for unit in units})
+    model_seeds = sorted({int(unit.model_seed) for unit in units})
+    expected_keys = {(ladder, seed) for ladder in ladder_ids for seed in model_seeds}
+    actual_keys = set(value_by_key)
+    if actual_keys != expected_keys:
+        missing = sorted(expected_keys - actual_keys)
+        raise ValueError(
+            "crossed bootstrap requires the complete ladder x model-seed grid; "
+            f"missing={missing}"
+        )
     observed = float(np.mean(values))
     rng = np.random.default_rng(int(seed))
-    n = len(values)
     boots = np.empty(n_bootstrap, dtype=float)
-    index = np.arange(n)
     for i in range(n_bootstrap):
-        sample = rng.choice(index, size=n, replace=True)
-        boots[i] = float(np.mean(np.take(values, sample)))
+        sampled_ladders = rng.choice(ladder_ids, size=len(ladder_ids), replace=True)
+        sampled_seeds = rng.choice(model_seeds, size=len(model_seeds), replace=True)
+        sample = [
+            value_by_key[(str(ladder), int(model_seed))]
+            for ladder in sampled_ladders
+            for model_seed in sampled_seeds
+        ]
+        boots[i] = float(np.mean(sample))
     alpha = (1.0 - confidence_level) / 2.0
     low = float(np.quantile(boots, alpha))
     high = float(np.quantile(boots, 1.0 - alpha))
@@ -175,8 +201,11 @@ def paired_bootstrap_ci(
         "observed_mean": observed,
         "confidence_level": float(confidence_level),
         "n_bootstrap": int(n_bootstrap),
-        "n_paired_units": n,
+        "n_paired_units": len(values),
         "paired_unit_definition": "(ladder_id, model_seed)",
+        "resampling_scheme": "crossed_ladder_and_model_seed",
+        "ladder_count": len(ladder_ids),
+        "model_seed_count": len(model_seeds),
         "ci_low": low,
         "ci_high": high,
         "unit_values": [float(v) for v in values],
@@ -184,8 +213,8 @@ def paired_bootstrap_ci(
             {"ladder_id": u.ladder_id, "model_seed": int(u.model_seed)} for u in units
         ],
         "notes": [
-            "Bootstrap resamples paired units, keeping ladder and model seed distinct.",
-            "Do not interpret model seeds alone as demonstration-selection variance.",
+            "Bootstrap resamples ladders and model seeds independently as crossed factors.",
+            "Cells sharing a ladder or seed are not treated as independent replicates.",
         ],
     }
 

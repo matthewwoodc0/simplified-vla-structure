@@ -37,10 +37,11 @@ from svla.efficiency.protocol import (
     MatrixCell,
     build_fit_matrix,
     load_efficiency_protocol,
+    sha256_json,
     source_demo_paths_for_cell,
     validate_cell_artifact_for_resume,
 )
-from svla.eval.manifest import ExperimentManifest
+from svla.eval.manifest import ExperimentManifest, tracked_source_hashes
 from svla.loss_profiles import resolve_loss_weights
 from svla.pickup_task import (
     ApproachStrategy,
@@ -85,6 +86,18 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _execution_source_identity() -> tuple[str, dict[str, str]]:
+    source_hashes = tracked_source_hashes(PROJECT_ROOT)
+    return sha256_json(source_hashes), source_hashes
+
+
+def _mean_step_rate(summary: dict[str, Any], numerator_key: str) -> float:
+    mean_steps = float(summary.get("mean_steps") or 0.0)
+    if mean_steps <= 0.0:
+        return 0.0
+    return float(summary.get(numerator_key) or 0.0) / mean_steps
+
+
 def demo_specs_from_protocol(protocol) -> list[PickupTrialSpec]:
     specs: list[PickupTrialSpec] = []
     for row in protocol.data["demo_pool"]["demos"]:
@@ -120,10 +133,34 @@ def generate_demo_pool(
             f"pickup_demo_{spec.trial_id:04d}_{spec.orientation.label}_"
             f"{spec.object_pose.label}_{spec.approach.label}_repeat_{spec.repeat}.json"
         )
-        demo = recorder.write_trial(spec, path)
-        demo["metadata"]["evaluation_protocol"] = protocol_metadata
-        demo["metadata"]["efficiency_study"] = True
-        write_json(path, demo)
+        if path.is_file():
+            demo = json.loads(path.read_text(encoding="utf-8"))
+            trial = demo.get("metadata", {}).get("trial_spec", {})
+            expected_trial = {
+                "trial_id": int(spec.trial_id),
+                "orientation": spec.orientation.label,
+                "object_pose": spec.object_pose.label,
+                "approach": spec.approach.label,
+                "repeat": int(spec.repeat),
+            }
+            existing_protocol = demo.get("metadata", {}).get(
+                "evaluation_protocol", {}
+            )
+            if any(trial.get(key) != value for key, value in expected_trial.items()):
+                raise RuntimeError(
+                    f"BLOCKED_DATA_POOL: existing demo trial contract mismatch: {path}"
+                )
+            if existing_protocol.get("config_sha256") != protocol_metadata.get(
+                "config_sha256"
+            ):
+                raise RuntimeError(
+                    f"BLOCKED_DATA_POOL: existing demo protocol hash mismatch: {path}"
+                )
+        else:
+            demo = recorder.write_trial(spec, path)
+            demo["metadata"]["evaluation_protocol"] = protocol_metadata
+            demo["metadata"]["efficiency_study"] = True
+            write_json(path, demo)
         if not bool(demo["summary"]["success"]):
             raise RuntimeError(
                 f"BLOCKED_DATA_POOL: scripted demo trial_id={spec.trial_id} "
@@ -213,14 +250,48 @@ def run_cell(
     non_efficacy_smoke: bool,
     resume: bool,
     protocol_metadata: dict,
+    execution_mode: str,
+    execution_source_identity: str,
 ) -> dict[str, Any]:
     out = cell_dir(output_dir, cell)
     out.mkdir(parents=True, exist_ok=True)
     manifest_path = out / "cell_manifest.json"
+    demo_paths = source_demo_paths_for_cell(
+        cell=cell, demo_path_by_trial_id=demo_path_by_trial
+    )
+    demo_path_strings = [str(p.resolve()) for p in demo_paths]
+    demo_path_hashes = [_sha256_file(path) for path in demo_paths]
+
+    specs = list(eval_specs)
+    registered_eval_total = len(specs)
+    if eval_limit is not None:
+        specs = specs[: int(eval_limit)]
+    evaluation_trial_ids = [int(spec.trial_id) for spec in specs]
+    evaluation_identity_hash = sha256_json(
+        {
+            "eval_split": protocol_metadata["eval_split"],
+            "trial_ids": evaluation_trial_ids,
+        }
+    )
+    execution_context = {
+        "execution_mode": execution_mode,
+        "eval_split": protocol_metadata["eval_split"],
+        "epochs_executed": int(epochs),
+        "eval_limit": eval_limit,
+        "non_efficacy_smoke": bool(non_efficacy_smoke),
+        "evaluation_trial_ids": evaluation_trial_ids,
+        "evaluation_identity_hash": evaluation_identity_hash,
+        "demo_source_path_sha256": demo_path_hashes,
+        "execution_source_identity": execution_source_identity,
+    }
     existing = load_existing_cell_manifest(manifest_path)
     if existing is not None:
         try:
-            validate_cell_artifact_for_resume(cell=cell, artifact=existing)
+            validate_cell_artifact_for_resume(
+                cell=cell,
+                artifact=existing,
+                execution_context=execution_context,
+            )
         except ValueError as exc:
             raise RuntimeError(
                 f"resume rejected stale/mismatched artifact for {cell.cell_id}: {exc}"
@@ -228,11 +299,11 @@ def run_cell(
         if resume and existing.get("status") == "completed":
             print(f"resume skip exact-match cell={cell.cell_id}")
             return existing
-
-    demo_paths = source_demo_paths_for_cell(
-        cell=cell, demo_path_by_trial_id=demo_path_by_trial
-    )
-    demo_path_strings = [str(p.resolve()) for p in demo_paths]
+        if existing.get("status") == "completed":
+            raise RuntimeError(
+                f"completed cell already exists for {cell.cell_id}; use --resume "
+                "or choose a new output directory"
+            )
 
     # Parity guard: both action spaces must receive identical ordered trial ids.
     # Path list identity is enforced at the matrix level; re-check here.
@@ -308,11 +379,6 @@ def run_cell(
         model_path = Path(saved)
     train_wall = time.perf_counter() - train_t0
 
-    specs = list(eval_specs)
-    registered_eval_total = len(specs)
-    if eval_limit is not None:
-        specs = specs[: int(eval_limit)]
-
     available_contexts = set(policy.group_keys)
     missing_contexts = sorted(
         {
@@ -350,18 +416,8 @@ def run_cell(
     n_trials = int(summary["total"])
     success_count = int(summary["successes"])
     success_rate = float(summary["success_rate"]) if n_trials else 0.0
-    mean_steps = float(summary.get("mean_steps") or 0.0)
-    total_steps_est = mean_steps * max(n_trials, 1)
-    joint_limit_rate = (
-        float(summary.get("mean_joint_limit_clipped_steps") or 0.0) / total_steps_est
-        if total_steps_est > 0
-        else 0.0
-    )
-    infeasible_rate = (
-        float(summary.get("mean_infeasible_steps") or 0.0) / total_steps_est
-        if total_steps_est > 0
-        else 0.0
-    )
+    joint_limit_rate = _mean_step_rate(summary, "mean_joint_limit_clipped_steps")
+    infeasible_rate = _mean_step_rate(summary, "mean_infeasible_steps")
 
     trials_path = out / "policy_trials.jsonl"
     with trials_path.open("w", encoding="utf-8") as handle:
@@ -381,10 +437,14 @@ def run_cell(
         "status": "completed",
         **cell.to_dict(),
         "non_efficacy_smoke": bool(non_efficacy_smoke),
+        "execution_mode": execution_mode,
+        "eval_split": protocol_metadata["eval_split"],
         "epochs_executed": int(epochs),
         "eval_limit": eval_limit,
         "registered_eval_total": registered_eval_total,
         "evaluated_spec_count": n_trials,
+        "evaluation_trial_ids": evaluation_trial_ids,
+        "evaluation_identity_hash": evaluation_identity_hash,
         "success_count": success_count,
         "success_rate": success_rate,
         "n_trials": n_trials,
@@ -405,9 +465,8 @@ def run_cell(
             else int(rss_after - rss_before)
         ),
         "demo_source_paths": demo_path_strings,
-        "demo_source_path_sha256": [
-            _sha256_file(Path(p)) for p in demo_path_strings
-        ],
+        "demo_source_path_sha256": demo_path_hashes,
+        "execution_source_identity": execution_source_identity,
         "model_path": str(model_path),
         "model_sha256": _sha256_file(model_path) if model_path.is_file() else None,
         "trials_path": str(trials_path),
@@ -500,6 +559,21 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
             "--allow-locked-evaluation is only valid with --mode locked-evaluation"
         )
 
+    if args.mode in {"primary-curve", "locked-evaluation"}:
+        subset_flags = {
+            "budgets": args.budgets,
+            "ladders": args.ladders,
+            "seeds": args.seeds,
+            "action_spaces": args.action_spaces,
+            "eval_limit": args.eval_limit,
+        }
+        active = [name for name, value in subset_flags.items() if value is not None]
+        if active:
+            raise ValueError(
+                f"{args.mode} must execute the complete registered matrix; "
+                f"subset overrides are forbidden: {active}"
+            )
+
     non_efficacy_smoke = False
     epochs = (
         int(args.epochs)
@@ -526,6 +600,14 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
         non_efficacy_smoke = True
         # Plumbing-only: one budget, one ladder, one seed, both action spaces allowed
         # but default to both for parity check; epochs <= 2; eval-limit=1; development.
+        if args.budgets is not None and len(args.budgets) != 1:
+            raise ValueError("smoke mode accepts exactly one budget")
+        if args.ladders is not None and len(args.ladders) != 1:
+            raise ValueError("smoke mode accepts exactly one ladder")
+        if args.seeds is not None and len(args.seeds) != 1:
+            raise ValueError("smoke mode accepts exactly one seed")
+        if args.action_spaces is not None and set(args.action_spaces) != set(ACTION_SPACES):
+            raise ValueError("smoke mode must exercise both registered action spaces")
         smoke_budget = (
             int(args.budgets[0]) if args.budgets else int(protocol.budgets[0])
         )
@@ -562,13 +644,9 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
         )
         eval_split = "development"
     elif args.mode == "locked-evaluation":
-        selected = filter_cells(
-            cells,
-            budgets=args.budgets,
-            ladders=args.ladders,
-            seeds=args.seeds,
-            action_spaces=args.action_spaces,
-        )
+        if epochs != int(protocol.frozen_recipe["epochs"]):
+            raise ValueError("locked-evaluation must use the frozen epoch count")
+        selected = cells
         eval_split = "locked_evaluation"
     else:
         raise ValueError(f"unknown mode: {args.mode}")
@@ -580,6 +658,7 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
     protocol_metadata["non_efficacy_smoke"] = bool(non_efficacy_smoke)
     protocol_metadata["mode"] = args.mode
 
+    execution_source_identity, execution_source_hashes = _execution_source_identity()
     manifest = ExperimentManifest.start(
         repo_root=PROJECT_ROOT,
         argv=command,
@@ -595,18 +674,29 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
             "mode": args.mode,
             "non_efficacy_smoke": bool(non_efficacy_smoke),
             "allow_locked_evaluation": bool(args.allow_locked_evaluation),
+            "execution_source_identity": execution_source_identity,
+            "execution_source_hashes": execution_source_hashes,
         },
     )
 
     demo_dir = Path(args.demo_dir) if args.demo_dir else output_dir / "demo_pool"
+    run_dir = output_dir / args.mode
     demo_specs = demo_specs_from_protocol(protocol)
     # Only generate demos needed by selected cells (still from the full pool contract).
     needed_ids = sorted({tid for cell in selected for tid in cell.demo_trial_ids})
     needed_specs = [s for s in demo_specs if s.trial_id in set(needed_ids)]
+    demo_protocol_metadata = {
+        "format": protocol.data["format"],
+        "version": protocol.version,
+        "config_path": str(protocol.path),
+        "config_sha256": protocol.sha256,
+        "role": "training_demo_pool",
+        "not_protocol_v2_alias": True,
+    }
     demo_path_by_trial = generate_demo_pool(
         demo_dir,
         needed_specs,
-        protocol_metadata=protocol_metadata,
+        protocol_metadata=demo_protocol_metadata,
     )
 
     eval_specs = protocol.split_specs(eval_split)
@@ -619,18 +709,20 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
             protocol=protocol,
             demo_path_by_trial=demo_path_by_trial,
             eval_specs=eval_specs,
-            output_dir=output_dir,
+            output_dir=run_dir,
             epochs=epochs,
             eval_limit=eval_limit,
             non_efficacy_smoke=non_efficacy_smoke,
             resume=bool(args.resume),
             protocol_metadata=protocol_metadata,
+            execution_mode=args.mode,
+            execution_source_identity=execution_source_identity,
         )
         cell_summaries.append(summary)
         generated.extend(
             [
-                cell_dir(output_dir, cell) / "cell_manifest.json",
-                cell_dir(output_dir, cell) / "cell_summary.json",
+                cell_dir(run_dir, cell) / "cell_manifest.json",
+                cell_dir(run_dir, cell) / "cell_summary.json",
             ]
         )
 
@@ -665,7 +757,7 @@ def run(args: argparse.Namespace, *, command: list[str] | None = None) -> dict:
         "planned_full_matrix_cell_count": 150,
         "cells": cell_summaries,
     }
-    summary_path = output_dir / (
+    summary_path = run_dir / (
         "efficiency_smoke_summary.json"
         if non_efficacy_smoke
         else "efficiency_run_summary.json"

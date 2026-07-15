@@ -29,6 +29,7 @@ EXPECTED_BUDGETS = (6, 12, 18, 24, 30)
 EXPECTED_LADDER_COUNT = 3
 EXPECTED_SEED_COUNT = 5
 EXPECTED_STRATUM_COUNT = 6
+EXPECTED_EVAL_TRIAL_COUNT = 24
 ACTION_SPACES = ("joint_delta", "ee_tool_delta")
 EVAL_SPLITS = ("development", "locked_evaluation")
 FORBIDDEN_SPLIT_ALIASES = ("validation", "final", "train")
@@ -309,6 +310,14 @@ def validate_efficiency_protocol(
     if planned != 150:
         raise ValueError(f"planned_cell_count must be 150, got {planned}")
 
+    uncertainty = data.get("uncertainty", {})
+    if uncertainty.get("method") != "crossed_factor_paired_bootstrap":
+        raise ValueError("uncertainty method must be crossed_factor_paired_bootstrap")
+    if uncertainty.get("paired_unit") != "(ladder_id, model_seed)":
+        raise ValueError("uncertainty paired_unit contract drift")
+    if int(uncertainty.get("paired_unit_count", -1)) != 15:
+        raise ValueError("uncertainty paired_unit_count must be 15")
+
 
 def _validate_frozen_recipe(recipe: dict, *, synthesis_path: Path) -> None:
     for key, expected in FROZEN_RECIPE_REQUIRED.items():
@@ -509,19 +518,25 @@ def _validate_ladder(
 
 def _validate_split_specs(split_cfg: dict, *, strata_labels: list[str]) -> None:
     specs = list(split_cfg.get("specs", []))
-    if not specs:
-        raise ValueError("evaluation split has no specs")
+    if len(specs) != EXPECTED_EVAL_TRIAL_COUNT:
+        raise ValueError(
+            f"evaluation split must contain {EXPECTED_EVAL_TRIAL_COUNT} specs, "
+            f"got {len(specs)}"
+        )
+    if int(split_cfg.get("trial_count", -1)) != len(specs):
+        raise ValueError("evaluation split trial_count does not match specs")
     trial_ids = [int(row["trial_id"]) for row in specs]
     if len(trial_ids) != len(set(trial_ids)):
         raise ValueError("evaluation split has duplicate trial_ids")
     # Each (orientation, approach) stratum must appear; positions may vary.
-    present = {
-        f"{row['orientation']}|{row['approach']}" for row in specs
-    }
-    if not set(strata_labels).issubset(present):
+    counts = Counter(f"{row['orientation']}|{row['approach']}" for row in specs)
+    if set(counts) != set(strata_labels):
         raise ValueError(
-            f"evaluation split missing strata: {set(strata_labels) - present}"
+            f"evaluation split strata mismatch: {set(strata_labels) - set(counts)}"
         )
+    expected_per_stratum = EXPECTED_EVAL_TRIAL_COUNT // EXPECTED_STRATUM_COUNT
+    if any(count != expected_per_stratum for count in counts.values()):
+        raise ValueError(f"evaluation split stratum imbalance: {dict(counts)}")
 
 
 def demo_identity_hash(trial_ids: Iterable[int]) -> str:
@@ -623,6 +638,7 @@ def validate_cell_artifact_for_resume(
     *,
     cell: MatrixCell,
     artifact: dict,
+    execution_context: dict[str, Any] | None = None,
 ) -> None:
     """Accept exact-match artifacts; reject any stale/mismatched provenance."""
     required = {
@@ -648,6 +664,15 @@ def validate_cell_artifact_for_resume(
         if actual != expected:
             raise ValueError(
                 f"resume reject: mismatched {key}: artifact={actual!r} cell={expected!r}"
+            )
+    for key, expected in (execution_context or {}).items():
+        if key not in artifact:
+            raise ValueError(f"resume artifact missing execution field {key}")
+        actual = artifact[key]
+        if actual != expected:
+            raise ValueError(
+                f"resume reject: mismatched execution {key}: "
+                f"artifact={actual!r} expected={expected!r}"
             )
 
 

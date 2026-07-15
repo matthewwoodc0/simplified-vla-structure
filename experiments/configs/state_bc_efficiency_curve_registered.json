@@ -19,6 +19,6 @@
   "notes": [
     "Dry-run-first registration. Does not execute the 150-fit primary curve.",
     "locked_evaluation requires a separate reviewed config with allow_locked_evaluation=true and --allow-locked-evaluation.",
-    "Primary execution command is recorded in evidence/state_bc_efficiency_curve_registration.json after independent review."
+    "Independent review passed on 2026-07-15; the complete development primary-curve command is recorded in evidence/state_bc_efficiency_curve_registration.json."
   ]
 }

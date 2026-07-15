@@ -62,7 +62,8 @@ Small tracked evidence records point to the ignored raw artifacts and freeze the
   (efficiency → pick-place → second controller). Documentation-only; no final access.
 - `evidence/state_bc_efficiency_curve_registration.json` preregisters EFF-001 (nested
   demo ladders, 150-fit matrix, development + locked_evaluation splits, endpoints, and
-  future primary command). Status `registered_not_run`: primary curve and locked
+  future primary command). Status `registered_not_run`: independent review passed on
+  2026-07-15 and the complete development curve is ready, but the primary curve and locked
   evaluation were **not** executed. Companion compact dry-run matrix:
   `evidence/state_bc_efficiency_curve_matrix_dry_run.json`.
 

@@ -3,10 +3,25 @@
   "version": 1,
   "date": "2026-07-14",
   "status": "registered_not_run",
-  "completion_label_target": "READY_FOR_EFFICIENCY_REVIEW",
+  "completion_label_target": "READY_FOR_PRIMARY_CURVE",
   "study_id": "EFF-001",
   "name": "state_bc_demonstration_efficiency_curve",
-  "description": "Preregistered nested stratified demonstration-efficiency curve under the Phase-5 frozen hybrid A1 fair contract. Infrastructure and registration only; primary curve and locked evaluation are NOT executed by this registration.",
+  "description": "Preregistered nested stratified demonstration-efficiency curve under the Phase-5 frozen hybrid A1 fair contract. Independent review passed after runner isolation, resume-provenance, exposure-rate, and crossed-bootstrap corrections. Primary curve and locked evaluation are NOT executed by this registration.",
+  "independent_review": {
+    "date": "2026-07-15",
+    "status": "passed_after_corrections",
+    "primary_curve_ready": true,
+    "primary_curve_executed": false,
+    "locked_evaluation_authorized": false,
+    "locked_evaluation_accessed": false,
+    "corrections": [
+      "primary, smoke, and locked artifacts use mode-isolated run directories",
+      "scientific modes reject partial matrix and recipe overrides",
+      "resume validates evaluation split, trial ids, demo hashes, and execution source identity",
+      "constraint exposure divides mean exposed steps by mean rollout steps",
+      "uncertainty resamples ladders and model seeds as crossed factors"
+    ]
+  },
   "source_synthesis": {
     "path": "evidence/phase5_causal_synthesis.json",
     "sha256": "491a91b9397e7788f7953b5237996ad1113e348b813d4883dc8845972e70c4a8",
@@ -14,7 +29,7 @@
   },
   "protocol": {
     "path": "configs/state_bc_efficiency_protocol_v1.json",
-    "sha256": "9efbd6c7ded93d0de282ed623e0354e1a74c119da15a29e55326a5fc9aeeee36",
+    "sha256": "23c3a6342a55c6f28f309e790faa8b90075b46ea07c15ce1e9a10dc6d73ec066",
     "format": "svla_state_bc_efficiency_protocol_v1",
     "version": 1
   },
@@ -498,11 +513,13 @@
     ]
   },
   "uncertainty": {
-    "method": "paired_bootstrap_over_preregistered_units",
+    "method": "crossed_factor_paired_bootstrap",
     "paired_unit": "(ladder_id, model_seed)",
     "paired_unit_count": 15,
+    "resampling_scheme": "resample ladder ids and model seeds independently, then evaluate their sampled Cartesian product",
     "notes": [
       "Model seeds and subset ladders are distinct variance factors.",
+      "Cells sharing a ladder or model seed are correlated and are not treated as 15 independent replicates.",
       "Five model seeds alone do not measure demonstration-selection variance.",
       "Never extrapolate a demo threshold beyond observed budgets.",
       "If a target performance level is not crossed, report not_reached."
@@ -514,19 +531,28 @@
   "matrix_formula": "5 budgets x 3 ladders x 5 seeds x 2 action spaces",
   "dry_run_matrix": {
     "ignored_full_path": "outputs/state_bc_efficiency_curve/efficiency_matrix_dry_run.json",
-    "ignored_full_sha256": "9015aa1e9c708c1bc2f4856f4bf2a77f3f60a956049b5cd5d31b2d826a9fbfea",
+    "ignored_full_sha256": "8e149af3b96f24c785eed7599bc15eb364cb825762b746ba074b21d828989873",
     "tracked_compact_path": "evidence/state_bc_efficiency_curve_matrix_dry_run.json",
-    "tracked_compact_sha256": "c9c7263236a4e2e7fe35dab6c5275eb20333de3d5ce29e3b97fe8924173c63c1",
+    "tracked_compact_sha256": "d02f6c6863b647b53cc160882822cc55650cb03a271ff846c04e54c06593527f",
     "cell_count": 150,
     "unique_cell_ids": 150
+  },
+  "review_verification": {
+    "date": "2026-07-15",
+    "focused_tests": "27 passed",
+    "full_tests": "191 passed with macOS graphics access",
+    "dry_run_cells": 150,
+    "smoke_cells": 2,
+    "smoke_resume": "2 exact-match cells skipped safely",
+    "git_diff_check": "passed pre-commit"
   },
   "primary_curve_executed": false,
   "locked_evaluation_accessed": false,
   "protocol_v2_final_accessed": false,
   "non_efficacy_smoke": {
     "executed": true,
-    "path": "outputs/state_bc_efficiency_curve_smoke/efficiency_smoke_summary.json",
-    "sha256": "d14f20c59233550dc040d788ccab3863292a2e8d92c9df9ba4123bd797a5b93a",
+    "path": "outputs/state_bc_efficiency_curve_smoke_reviewed_final/smoke/efficiency_smoke_summary.json",
+    "sha256": "fcf8fbfd228251dc54bbb00bf8bee137514b6e86a36d5e6f4b3c45898a8f82de",
     "scope": {
       "budgets": [
         6
@@ -550,7 +576,7 @@
   },
   "experiment_config": {
     "path": "experiments/configs/state_bc_efficiency_curve_registered.json",
-    "sha256": "f0475b4c70b6f98f3ad01eecbb85b8997ebde158032421149dcf680f97ed2b03",
+    "sha256": "07820b12a88b892ed7d81d73c8944e8580de77eacf787bdad7c7d4c0b59ce8df",
     "default_mode": "dry-run",
     "allow_locked_evaluation": false
   },
@@ -559,11 +585,10 @@
     "locked_evaluation_requires_separate_authorization": "PYTHONPATH=src .venv/bin/python scripts/run_state_bc_efficiency_curve.py --mode locked-evaluation --allow-locked-evaluation --protocol configs/state_bc_efficiency_protocol_v1.json --output-dir outputs/state_bc_efficiency_curve_locked",
     "analysis_note": "After primary curve cells complete, aggregate with analysis/efficiency_curve.py (read-only)."
   },
-  "forbidden_until_review": [
-    "150-fit primary curve",
-    "300-epoch matrix cells as scientific result",
+  "still_forbidden": [
     "locked_evaluation",
     "protocol-v2 final",
     "selection or tuning from smoke outcomes"
-  ]
+  ],
+  "next_authorized_stage": "primary-curve on the complete development matrix; not executed by this review"
 }
